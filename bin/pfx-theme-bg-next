@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+# pfx:summary=Cycle to the next wallpaper in the current theme.
+#
+# Themes ship a backgrounds/ directory. This walks it in sorted order, remembers
+# the position, and hands the result to hyprpaper.
+
+set -eo pipefail
+
+PFX_CONFIG="${PFX_CONFIG:-$HOME/.config/pfx}"
+
+theme_dir="$PFX_CONFIG/current/theme"
+state_file="$PFX_CONFIG/current/background"
+
+[[ -d $theme_dir/backgrounds ]] || {
+  echo "Current theme ships no backgrounds." >&2
+  exit 1
+}
+
+mapfile -t backgrounds < <(find -L "$theme_dir/backgrounds" -type f \
+  \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | sort)
+
+((${#backgrounds[@]})) || {
+  echo "No image files in the theme's backgrounds directory." >&2
+  exit 1
+}
+
+current=""
+[[ -f $state_file ]] && current=$(<"$state_file")
+
+next_index=0
+for i in "${!backgrounds[@]}"; do
+  if [[ ${backgrounds[i]} == "$current" ]]; then
+    next_index=$(((i + 1) % ${#backgrounds[@]}))
+    break
+  fi
+done
+
+selected="${backgrounds[$next_index]}"
+echo "$selected" >"$state_file"
+
+if command -v hyprpaper >/dev/null 2>&1; then
+  pkill -x hyprpaper 2>/dev/null || true
+  cat >"$PFX_CONFIG/current/hyprpaper.conf" <<EOF
+preload = $selected
+wallpaper = , $selected
+splash = false
+EOF
+  setsid hyprpaper -c "$PFX_CONFIG/current/hyprpaper.conf" >/dev/null 2>&1 &
+fi
+
+echo "$selected"

@@ -1,0 +1,95 @@
+// pfx status bar.
+//
+// YOUR FILE — backed up before replacement, never silently overwritten.
+// Colours live in style.css, which imports the active theme.
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "spacing": 0,
+
+  "modules-left": ["hyprland/workspaces", "hyprland/window"],
+  "modules-center": ["clock"],
+  "modules-right": [
+    "tray",
+    "pulseaudio",
+    "network",
+    "bluetooth",
+    "cpu",
+    "memory",
+    "battery"
+  ],
+
+  "hyprland/workspaces": {
+    "format": "{icon}",
+    "on-click": "activate",
+    "format-icons": { "default": "", "active": "", "urgent": "" },
+    "persistent-workspaces": { "*": 5 }
+  },
+
+  "hyprland/window": {
+    "format": "{title}",
+    "max-length": 60,
+    "separate-outputs": true
+  },
+
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip-format": "<tt>{calendar}</tt>",
+    "calendar": {
+      "mode": "month",
+      "on-scroll": 1
+    }
+  },
+
+  "cpu": {
+    "interval": 5,
+    "format": "  {usage}%",
+    "on-click": "pfx-launch-tui btop"
+  },
+
+  "memory": {
+    "interval": 10,
+    "format": "  {percentage}%",
+    "on-click": "pfx-launch-tui btop"
+  },
+
+  "battery": {
+    "interval": 30,
+    "states": { "warning": 25, "critical": 10 },
+    "format": "{icon}  {capacity}%",
+    "format-charging": "  {capacity}%",
+    "format-icons": ["", "", "", "", ""],
+    "tooltip-format": "{timeTo}"
+  },
+
+  "network": {
+    "format-wifi": "  {signalStrength}%",
+    "format-ethernet": "  wired",
+    "format-disconnected": "  offline",
+    "tooltip-format-wifi": "{essid} ({signalStrength}%)",
+    "on-click": "pfx-launch-tui impala"
+  },
+
+  "bluetooth": {
+    "format": "",
+    "format-disabled": "",
+    "format-connected": "  {num_connections}",
+    "tooltip-format": "{device_alias}",
+    "on-click": "uwsm-app -- blueman-manager"
+  },
+
+  "pulseaudio": {
+    "format": "{icon}  {volume}%",
+    "format-muted": "  muted",
+    "format-icons": { "default": ["", "", ""] },
+    "on-click": "uwsm-app -- pavucontrol",
+    "on-scroll-up": "swayosd-client --output-volume raise",
+    "on-scroll-down": "swayosd-client --output-volume lower"
+  },
+
+  "tray": {
+    "icon-size": 15,
+    "spacing": 12
+  }
+}

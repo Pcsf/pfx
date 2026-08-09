@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# pfx:summary=Install packages from the AUR.
+#
+# Usage: pfx-pkg-aur-add <package>...
+
+set -eo pipefail
+
+(($#)) || {
+  echo "Usage: pfx-pkg-aur-add <package>..." >&2
+  exit 1
+}
+
+command -v yay >/dev/null 2>&1 || {
+  echo "pfx-pkg-aur-add: yay is not installed. Re-run install.sh to bootstrap it." >&2
+  exit 1
+}
+
+exec yay -S --needed --noconfirm "$@"

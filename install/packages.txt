@@ -1,0 +1,91 @@
+# pfx base packages — official Arch repositories only (core/extra/multilib).
+#
+# Anything that can live here belongs here rather than in packages-aur.txt:
+# repo packages are prebuilt, signed, and cannot fail to compile.
+
+# --- Compositor and session ---
+hyprland
+hyprlock
+hypridle
+hyprpaper
+hyprpicker
+hyprpolkitagent
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+uwsm
+polkit
+qt5-wayland
+qt6-wayland
+
+# --- Shell surface ---
+waybar
+mako
+libnotify
+swayosd
+
+# --- Terminal and editor ---
+alacritty
+neovim
+
+# --- Clipboard, screenshots, screen recording ---
+wl-clipboard
+cliphist
+grim
+slurp
+swappy
+wf-recorder
+
+# --- Hardware controls ---
+brightnessctl
+playerctl
+power-profiles-daemon
+
+# --- Audio ---
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+pavucontrol
+
+# --- Network and bluetooth ---
+networkmanager
+impala
+bluez
+bluez-utils
+blueman
+
+# --- Files ---
+nautilus
+gvfs
+gvfs-mtp
+unzip
+tree
+
+# --- Browser (also the web-app runtime) ---
+chromium
+
+# --- Fonts ---
+ttf-jetbrains-mono-nerd
+noto-fonts
+noto-fonts-emoji
+noto-fonts-cjk
+
+# --- CLI environment ---
+git
+base-devel
+jq
+gum
+fzf
+ripgrep
+fd
+bat
+eza
+zoxide
+starship
+btop
+fastfetch
+man-db
+openssh
+imagemagick
+xdg-user-dirs

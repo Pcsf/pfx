@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# pfx:summary=Restart a desktop component (waybar, mako, hyprpaper, walker).
+#
+# Usage: pfx-restart <component>
+
+set -eo pipefail
+
+case "${1:-}" in
+waybar)
+  pkill -x waybar 2>/dev/null || true
+  setsid uwsm-app -- waybar >/dev/null 2>&1 &
+  echo "waybar restarted"
+  ;;
+mako)
+  pkill -x mako 2>/dev/null || true
+  setsid uwsm-app -- mako >/dev/null 2>&1 &
+  echo "mako restarted"
+  ;;
+hyprpaper)
+  pfx-theme-bg-next >/dev/null
+  echo "hyprpaper restarted"
+  ;;
+walker)
+  pkill -x walker 2>/dev/null || true
+  setsid walker --gapplication-service >/dev/null 2>&1 &
+  echo "walker restarted"
+  ;;
+*)
+  echo "Usage: pfx-restart {waybar|mako|hyprpaper|walker}" >&2
+  exit 1
+  ;;
+esac

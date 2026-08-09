@@ -1,0 +1,61 @@
+#!/bin/bash
+#
+# pfx:summary=The pfx dispatcher. Routes `pfx <group> <action>` to pfx-* commands.
+#
+# Resolution is longest-match-first, so `pfx theme set tokyo-night` finds
+# pfx-theme-set and passes "tokyo-night", while `pfx menu` finds pfx-menu.
+# That single rule is the whole CLI — adding a command is adding a file.
+
+set -eo pipefail
+
+PFX_BIN="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+summary_of() {
+  sed -n 's/^# *pfx:summary=//p' "$1" | head -1
+}
+
+show_help() {
+  local version="unknown"
+  [[ -f $PFX_BIN/../VERSION ]] && version=$(<"$PFX_BIN/../VERSION")
+
+  echo "pfx $version — Arch + Hyprland desktop toolkit"
+  echo
+  echo "Usage: pfx <command> [args...]"
+  echo
+  echo "Commands:"
+
+  local cmd name summary
+  for cmd in "$PFX_BIN"/pfx-*; do
+    [[ -f $cmd && -x $cmd ]] || continue
+    name="${cmd##*/pfx-}"
+    summary=$(summary_of "$cmd")
+    [[ -n $summary ]] || continue
+    printf '  %-28s %s\n' "${name//-/ }" "$summary"
+  done | sort
+  echo
+  echo "Every command is also callable directly, e.g. pfx-theme-set."
+}
+
+if (($# == 0)) || [[ $1 == --help || $1 == -h || $1 == help ]]; then
+  show_help
+  exit 0
+fi
+
+if [[ $1 == --version || $1 == -v || $1 == version ]]; then
+  [[ -f $PFX_BIN/../VERSION ]] && cat "$PFX_BIN/../VERSION" || echo "unknown"
+  exit 0
+fi
+
+# Longest match wins: try `pfx-a-b-c`, then `pfx-a-b`, then `pfx-a`, handing
+# whatever is left over to the command as arguments.
+for ((n = $#; n >= 1; n--)); do
+  candidate="pfx-$(printf '%s-' "${@:1:n}")"
+  candidate="${candidate%-}"
+  if [[ -x $PFX_BIN/$candidate ]]; then
+    exec "$PFX_BIN/$candidate" "${@:n+1}"
+  fi
+done
+
+echo "pfx: unknown command '$*'" >&2
+echo "Run 'pfx --help' to see what's available." >&2
+exit 1

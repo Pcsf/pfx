@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# pfx:summary=Print the working directory of the focused terminal, or $HOME.
+#
+# Used so a new terminal opens where you already are. Walks the process tree of
+# the focused window looking for a shell, and reads its cwd from /proc.
+
+set -eo pipefail
+
+fallback="$HOME"
+
+pid=$(hyprctl activewindow -j 2>/dev/null | jq -r '.pid // empty') || true
+[[ -n ${pid:-} && $pid != "null" ]] || { echo "$fallback"; exit 0; }
+
+# Descend into children; the shell is usually a child of the terminal emulator.
+for candidate in $pid $(pgrep -P "$pid" 2>/dev/null || true); do
+  comm=$(cat "/proc/$candidate/comm" 2>/dev/null || true)
+  case "$comm" in
+  bash | zsh | fish | sh | nu)
+    cwd=$(readlink -f "/proc/$candidate/cwd" 2>/dev/null || true)
+    [[ -d ${cwd:-} ]] && { echo "$cwd"; exit 0; }
+    ;;
+  esac
+done
+
+echo "$fallback"

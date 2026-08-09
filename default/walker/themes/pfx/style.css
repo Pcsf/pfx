@@ -1,0 +1,69 @@
+/* pfx walker theme.
+ *
+ * Colours come from the active pfx theme. GTK resolves @import relative to
+ * this file, which is why the path climbs seven levels to reach $HOME.
+ */
+@import "../../../../../../../.config/pfx/current/theme/walker.css";
+
+* {
+  all: unset;
+}
+
+* {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 15px;
+  color: @text;
+}
+
+scrollbar {
+  opacity: 0;
+}
+
+.normal-icons { -gtk-icon-size: 16px; }
+.large-icons  { -gtk-icon-size: 32px; }
+
+.box-wrapper {
+  background: alpha(@base, 0.96);
+  padding: 18px;
+  border: 2px solid @border;
+  border-radius: 12px;
+}
+
+.search-container {
+  background: alpha(@surface, 0.6);
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.input placeholder { opacity: 0.45; }
+
+.input:focus,
+.input:active {
+  box-shadow: none;
+  outline: none;
+}
+
+.item {
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+
+.item:selected {
+  background: @accent;
+  color: @base;
+}
+
+.item .subtext {
+  opacity: 0.55;
+  font-size: 13px;
+}
+
+.placeholder,
+.elephant-hint {
+  opacity: 0.4;
+  padding: 12px;
+}
+
+.keybinds { opacity: 0.4; font-size: 12px; }
+
+.error { color: @urgent; padding: 8px; }

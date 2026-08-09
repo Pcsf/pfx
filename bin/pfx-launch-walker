@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+# pfx:summary=Run walker with pfx's theme applied.
+#
+# Single choke point for every walker invocation, so swapping the menu backend
+# later (fuzzel, wofi, rofi) is a change to one file.
+
+exec walker "$@"

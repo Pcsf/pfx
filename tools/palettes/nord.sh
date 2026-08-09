@@ -1,0 +1,6 @@
+base="#2e3440";   surface="#3b4252"; text="#d8dee9";  muted="#4c566a"
+accent="#88c0d0"; urgent="#bf616a";  warning="#ebcb8b"; border="#434c5e"
+ansi0="#3b4252";  ansi1="#bf616a";  ansi2="#a3be8c";  ansi3="#ebcb8b"
+ansi4="#81a1c1";  ansi5="#b48ead";  ansi6="#88c0d0";  ansi7="#e5e9f0"
+ansi8="#4c566a";  ansi9="#bf616a";  ansi10="#a3be8c"; ansi11="#ebcb8b"
+ansi12="#81a1c1"; ansi13="#b48ead"; ansi14="#8fbcbb"; ansi15="#eceff4"

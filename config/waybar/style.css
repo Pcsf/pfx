@@ -1,0 +1,84 @@
+/* pfx status bar styling.
+ *
+ * Colours come from the active theme via the import below — the path resolves
+ * to ~/.config/pfx/current/theme/waybar.css, which pfx-theme-set repoints.
+ */
+@import url("../pfx/current/theme/waybar.css");
+
+* {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 13px;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+
+window#waybar {
+  background: @base;
+  color: @text;
+}
+
+#workspaces {
+  margin-left: 6px;
+}
+
+#workspaces button {
+  padding: 0 8px;
+  color: @muted;
+  background: transparent;
+}
+
+#workspaces button.active {
+  color: @accent;
+}
+
+#workspaces button.urgent {
+  color: @urgent;
+}
+
+#workspaces button:hover {
+  background: @surface;
+  color: @text;
+}
+
+#window {
+  margin-left: 10px;
+  color: @muted;
+}
+
+#clock {
+  color: @text;
+  font-weight: bold;
+}
+
+#cpu,
+#memory,
+#battery,
+#network,
+#bluetooth,
+#pulseaudio,
+#tray {
+  padding: 0 10px;
+  color: @text;
+}
+
+#battery.warning {
+  color: @warning;
+}
+
+#battery.critical {
+  color: @urgent;
+}
+
+#network.disconnected {
+  color: @urgent;
+}
+
+tooltip {
+  background: @base;
+  border: 1px solid @border;
+}
+
+tooltip label {
+  color: @text;
+}

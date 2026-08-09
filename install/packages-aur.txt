@@ -1,0 +1,13 @@
+# pfx AUR packages.
+#
+# Deliberately minimal. Every line here is a package that must build on the
+# target machine, which is the most likely thing to break an install. Before
+# adding anything, check whether Arch ships it — if it does, it goes in
+# packages.txt instead.
+
+# The menu backend. Everything in pfx-menu pipes into `walker --dmenu`.
+walker-bin
+
+# Resolves "the user's terminal" per the XDG spec, so terminal-launching
+# scripts don't have to hardcode alacritty.
+xdg-terminal-exec

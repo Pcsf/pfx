@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# pfx:summary=Run a terminal UI app in its own floating terminal window.
+#
+# Usage: pfx-launch-tui <command> [args...]
+
+set -eo pipefail
+
+(($#)) || { echo "Usage: pfx-launch-tui <command> [args...]" >&2; exit 1; }
+
+command -v "$1" >/dev/null 2>&1 || {
+  notify-send -u critical "pfx" "$1 is not installed."
+  exit 1
+}
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=pfx-tui -- "$@"

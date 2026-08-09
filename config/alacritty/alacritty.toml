@@ -1,0 +1,28 @@
+# pfx terminal.
+#
+# YOUR FILE — backed up before replacement, never silently overwritten.
+# Colours come from the active theme through the import below.
+
+[general]
+import = ["~/.config/pfx/current/theme/alacritty.toml"]
+
+[env]
+TERM = "xterm-256color"
+
+[window]
+padding = { x = 12, y = 12 }
+decorations = "None"
+opacity = 0.96
+dynamic_padding = true
+
+[font]
+size = 11.0
+normal = { family = "JetBrainsMono Nerd Font", style = "Regular" }
+bold = { family = "JetBrainsMono Nerd Font", style = "Bold" }
+italic = { family = "JetBrainsMono Nerd Font", style = "Italic" }
+
+[scrolling]
+history = 20000
+
+[cursor]
+style = { shape = "Block", blinking = "On" }

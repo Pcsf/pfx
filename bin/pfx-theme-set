@@ -1,0 +1,75 @@
+#!/bin/bash
+#
+# pfx:summary=Apply a theme across the terminal, bar, menu, notifications and compositor.
+#
+# Usage: pfx-theme-set <theme-name>
+#
+# Every themed app reads its colours from a file under ~/.config/pfx/current/theme,
+# which is a SYMLINK. Applying a theme stages the resolved files somewhere else
+# and then repoints that symlink with a single rename(2). There is therefore no
+# instant at which an app can observe a half-applied theme — it sees the old
+# theme or the new one, never a mixture.
+#
+# A theme is resolved by overlaying the user's copy (~/.config/pfx/themes/<name>)
+# on top of the shipped one, so customising a stock theme means dropping in just
+# the files you want to change.
+
+set -eo pipefail
+
+PFX_PATH="${PFX_PATH:-$HOME/.local/share/pfx}"
+PFX_CONFIG="${PFX_CONFIG:-$HOME/.config/pfx}"
+
+SYSTEM_THEMES="$PFX_PATH/themes"
+USER_THEMES="$PFX_CONFIG/themes"
+CURRENT="$PFX_CONFIG/current"
+
+if [[ -z $1 ]]; then
+  echo "Usage: pfx-theme-set <theme-name>" >&2
+  echo "Available: $(pfx-theme-list | tr '\n' ' ')" >&2
+  exit 1
+fi
+
+# Accept "Tokyo Night" as well as "tokyo-night".
+name=$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+
+if [[ ! -d $SYSTEM_THEMES/$name && ! -d $USER_THEMES/$name ]]; then
+  echo "pfx-theme-set: no such theme '$name'" >&2
+  echo "Available: $(pfx-theme-list | tr '\n' ' ')" >&2
+  exit 1
+fi
+
+staged="$CURRENT/staged/$name"
+rm -rf "$staged"
+mkdir -p "$staged"
+
+# Shipped theme first, user overlay second — last write wins, so a user file
+# of the same name replaces the stock one.
+[[ -d $SYSTEM_THEMES/$name ]] && cp -r "$SYSTEM_THEMES/$name/." "$staged/"
+[[ -d $USER_THEMES/$name ]] && cp -r "$USER_THEMES/$name/." "$staged/"
+
+# Atomic swap: create the new symlink under a temporary name in the same
+# directory, then rename it over the old one. rename(2) is atomic, so readers
+# never see a missing or partial theme directory.
+tmp_link="$CURRENT/.theme.$$"
+ln -sfn "$staged" "$tmp_link"
+mv -T "$tmp_link" "$CURRENT/theme"
+
+echo "$name" >"$CURRENT/theme.name"
+
+# Drop staged themes that are no longer referenced.
+find "$CURRENT/staged" -mindepth 1 -maxdepth 1 -type d ! -name "$name" -exec rm -rf {} + 2>/dev/null || true
+
+# Tell everything that's running to re-read its colours. Each of these is a
+# no-op when the app isn't running, which is why none of them are guarded.
+if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  hyprctl reload >/dev/null 2>&1 || true
+fi
+pkill -SIGUSR2 waybar 2>/dev/null || true
+makoctl reload 2>/dev/null || true
+
+# Alacritty, walker and btop pick up the change on their own — alacritty watches
+# its imports, and the other two re-read on launch.
+
+[[ ${PFX_THEME_SKIP_BACKGROUND:-0} == 1 ]] || pfx-theme-bg-next >/dev/null 2>&1 || true
+
+echo "Theme set to $name"

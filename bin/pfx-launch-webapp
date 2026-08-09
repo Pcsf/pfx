@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# pfx:summary=Open a URL as a standalone web app window in a Chromium-family browser.
+#
+# Usage: pfx-launch-webapp [--print-cmd] <url> [extra browser flags...]
+#
+# Chromium's --app= flag is the whole mechanism: it opens a URL in a window
+# with no tab strip, no omnibox, and its own entry in the window manager, which
+# is what makes a web page behave like an application. Only Chromium-family
+# browsers implement it, so an unsupported default falls back to chromium.
+
+set -eo pipefail
+
+print_only=false
+if [[ $1 == --print-cmd ]]; then
+  print_only=true
+  shift
+fi
+
+if (($# == 0)); then
+  echo "Usage: pfx-launch-webapp [--print-cmd] <url> [browser flags...]" >&2
+  exit 1
+fi
+
+url="$1"
+shift
+
+default_browser=$(xdg-settings get default-web-browser 2>/dev/null || true)
+
+case "$default_browser" in
+chromium* | google-chrome* | brave* | microsoft-edge* | opera* | vivaldi*) ;;
+*) default_browser="chromium.desktop" ;;
+esac
+
+# Pull the actual binary out of the .desktop Exec line. Field codes (%U, %F)
+# and flags are dropped — we only want the executable.
+#
+# The `|| true` matters: sed exits non-zero when none of those paths exist,
+# which under `set -e` would kill the script before the fallback below ever
+# runs. A missing .desktop file is an expected case, not an error.
+browser_bin=$(
+  sed -n 's/^Exec=\([^ ]*\).*/\1/p' \
+    {"$HOME/.local","$HOME/.nix-profile",/usr}/share/applications/"$default_browser" 2>/dev/null |
+    head -1 || true
+)
+
+# If the .desktop file could not be read, fall back to whatever chromium-family
+# browser is actually on PATH.
+if [[ -z $browser_bin ]]; then
+  for candidate in chromium google-chrome-stable brave vivaldi-stable microsoft-edge-stable; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      browser_bin="$candidate"
+      break
+    fi
+  done
+fi
+
+[[ -n $browser_bin ]] || {
+  echo "pfx-launch-webapp: no Chromium-family browser found." >&2
+  exit 1
+}
+
+if $print_only; then
+  echo "$browser_bin --app=$url $*"
+  exit 0
+fi
+
+exec setsid uwsm-app -- "$browser_bin" --app="$url" "$@"

@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# pfx:summary=Focus a window matching a pattern, or launch the app if none exists.
+#
+# Usage: pfx-launch-or-focus <window-pattern> [launch-command]
+#
+# The pattern is matched against both window class and title, case-insensitively,
+# on word boundaries — so "signal" matches the Signal client but not "signalling".
+
+set -eo pipefail
+
+if (($# == 0)); then
+  echo "Usage: pfx-launch-or-focus <window-pattern> [launch-command]" >&2
+  exit 1
+fi
+
+pattern="$1"
+launch_command="${2:-uwsm-app -- $pattern}"
+
+address=$(
+  hyprctl clients -j |
+    jq -r --arg p "$pattern" '
+      .[]
+      | select((.class | test("\\b" + $p + "\\b"; "i")) or (.title | test("\\b" + $p + "\\b"; "i")))
+      | .address
+    ' | head -1
+)
+
+if [[ -n $address ]]; then
+  exec hyprctl dispatch focuswindow "address:$address"
+fi
+
+exec setsid bash -c "$launch_command"

@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# pfx:summary=Open the default web browser.
+
+set -eo pipefail
+
+browser=$(xdg-settings get default-web-browser 2>/dev/null || echo chromium.desktop)
+
+bin=$(sed -n 's/^Exec=\([^ ]*\).*/\1/p' \
+  {"$HOME/.local",/usr}/share/applications/"$browser" 2>/dev/null | head -1)
+
+[[ -n ${bin:-} ]] || bin=chromium
+
+exec setsid uwsm-app -- "$bin" "$@"

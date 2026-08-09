@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# pfx:summary=List every available theme, shipped and user-defined.
+
+set -eo pipefail
+
+PFX_PATH="${PFX_PATH:-$HOME/.local/share/pfx}"
+PFX_CONFIG="${PFX_CONFIG:-$HOME/.config/pfx}"
+
+{
+  [[ -d $PFX_PATH/themes ]] && find "$PFX_PATH/themes" -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
+  [[ -d $PFX_CONFIG/themes ]] && find "$PFX_CONFIG/themes" -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
+} 2>/dev/null | sort -u

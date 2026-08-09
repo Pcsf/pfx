@@ -1,0 +1,21 @@
+pfx incorporates ideas and, in two places, code from Omarchy
+(https://github.com/basecamp/omarchy), which is released under the MIT License.
+
+Copyright (c) Basecamp / David Heinemeier Hansson and Omarchy contributors.
+
+Adapted with attribution:
+
+  default/walker/themes/pfx/layout.xml
+      Copied unchanged from Omarchy's walker theme. It is a plain GTK4 widget
+      tree describing walker's window structure, with no styling opinions.
+
+  bin/pfx-menu-keybindings  (xkb keycode-to-symbol mapping)
+      The approach of compiling the active keymap with `xkbcli compile-keymap`
+      and correlating xkb_keycodes against xkb_symbols is Omarchy's. The
+      implementation here is rewritten and reads `hyprctl binds` plain text
+      rather than the JSON output, which is broken on Hyprland 0.56.0.
+
+Everything else is an independent implementation. The structural ideas that
+pfx borrows deliberately — a replaceable system-defaults tree beside a sacred
+user-config tree, web apps as generated .desktop entries, a dmenu-driven menu
+tree, atomic theme swapping — are architecture, not code.

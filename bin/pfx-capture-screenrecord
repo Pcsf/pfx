@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# pfx:summary=Start or stop a screen recording.
+#
+# Running it once starts a region recording; running it again stops it. That
+# single-command toggle is what makes it usable from one keybinding.
+
+set -eo pipefail
+
+dir="${XDG_VIDEOS_DIR:-$HOME/Videos}/Recordings"
+mkdir -p "$dir"
+
+if pgrep -x wf-recorder >/dev/null; then
+  pkill -INT -x wf-recorder
+  notify-send "Recording stopped" "Saved to $dir"
+  exit 0
+fi
+
+file="$dir/$(date +%Y-%m-%d_%H-%M-%S).mp4"
+
+if [[ ${1:-region} == region ]]; then
+  geometry=$(slurp) || exit 0
+  setsid wf-recorder -g "$geometry" -f "$file" >/dev/null 2>&1 &
+else
+  setsid wf-recorder -f "$file" >/dev/null 2>&1 &
+fi
+
+notify-send "Recording started" "Run the same command again to stop."

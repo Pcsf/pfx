@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# pfx:summary=Open the configured editor, in a terminal if it is a TUI.
+
+set -eo pipefail
+
+editor="${PFX_EDITOR:-${EDITOR:-nvim}}"
+
+case "$editor" in
+nvim | vim | helix | hx | nano | emacsclient)
+  exec setsid uwsm-app -- xdg-terminal-exec -- "$editor" "$@"
+  ;;
+*)
+  exec setsid uwsm-app -- "$editor" "$@"
+  ;;
+esac

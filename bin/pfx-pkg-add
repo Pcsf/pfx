@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# pfx:summary=Install packages from the official Arch repositories.
+#
+# Usage: pfx-pkg-add <package>...
+
+set -eo pipefail
+
+(($#)) || {
+  echo "Usage: pfx-pkg-add <package>..." >&2
+  exit 1
+}
+
+exec sudo pacman -S --needed --noconfirm "$@"

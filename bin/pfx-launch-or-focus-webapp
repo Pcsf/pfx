@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# pfx:summary=Focus a running web app window, or open it if it isn't running.
+#
+# Usage: pfx-launch-or-focus-webapp <window-pattern> <url> [browser flags...]
+#
+# Chromium sets the window class from the --app URL's host, so the pattern is
+# usually the site name: `pfx-launch-or-focus-webapp WhatsApp https://web.whatsapp.com/`
+
+set -eo pipefail
+
+if (($# < 2)); then
+  echo "Usage: pfx-launch-or-focus-webapp <window-pattern> <url> [flags...]" >&2
+  exit 1
+fi
+
+pattern="$1"
+shift
+
+exec pfx-launch-or-focus "$pattern" "pfx-launch-webapp $*"

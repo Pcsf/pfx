@@ -1,0 +1,262 @@
+#!/bin/bash
+#
+# pfx:summary=Open the pfx menu, or jump straight to a submenu.
+#
+# Usage: pfx-menu [submenu]
+#   pfx-menu            # main menu
+#   pfx-menu style      # straight to Style
+#   pfx-menu system     # straight to System
+#
+# The whole menu is one pattern: menu() pipes newline-separated options into
+# `walker --dmenu` and echoes the choice; a case statement dispatches on it.
+# Everything below is that pattern repeated. Adding an entry is adding a line
+# to a string and an arm to a case.
+
+set -eo pipefail
+
+# When invoked with an explicit submenu, "back" should exit rather than drop
+# into a main menu the user never opened.
+JUMPED_DIRECTLY=false
+
+# ---------------------------------------------------------------- machinery
+
+menu() {
+  local prompt="$1" options="$2" extra="${3:-}"
+  local -a args=()
+  [[ -n $extra ]] && read -r -a args <<<"$extra"
+
+  echo -e "$options" |
+    pfx-launch-walker --dmenu --width 320 --minheight 1 --maxheight 640 \
+      -p "$prompt…" "${args[@]}" 2>/dev/null
+}
+
+back_to() {
+  $JUMPED_DIRECTLY && exit 0
+  "${1:-show_main_menu}"
+}
+
+# A second press of the menu key closes the menu instead of stacking another.
+close_if_open() {
+  if pgrep -f 'walker.*--dmenu' >/dev/null 2>&1; then
+    walker --close >/dev/null 2>&1 || true
+    exit 0
+  fi
+}
+
+# Run a command in a floating terminal that stays open so the user can read
+# the output — used for anything that installs, removes, or takes a while.
+in_terminal() {
+  setsid uwsm-app -- xdg-terminal-exec --app-id=pfx-task -- \
+    bash -c "$1; echo; echo 'Press enter to close…'; read -r" >/dev/null 2>&1 &
+}
+
+install_pkg() { in_terminal "echo 'Installing $1…'; pfx-pkg-add $2"; }
+install_aur() { in_terminal "echo 'Installing $1 from the AUR…'; pfx-pkg-aur-add $2"; }
+remove_pkg() { in_terminal "echo 'Removing $1…'; pfx-pkg-remove $2"; }
+
+edit_config() {
+  notify-send -u low "pfx" "Editing $(basename "$1")"
+  pfx-launch-editor "$1"
+}
+
+open_url() { setsid pfx-launch-browser "$1" >/dev/null 2>&1 & }
+
+# ---------------------------------------------------------------- submenus
+
+show_apps_menu() {
+  # walker's own application provider is a better app launcher than anything
+  # rebuilt here, so this hands straight off to it.
+  pfx-launch-walker --provider desktopapplications >/dev/null 2>&1
+}
+
+show_webapp_menu() {
+  case $(menu "Web apps" "Add\nRemove\nList") in
+  *Add*) in_terminal "pfx-webapp-install" ;;
+  *Remove*) pfx-webapp-remove ;;
+  *List*)
+    mapfile -t apps < <(grep -rl '^Exec=pfx-launch-webapp' "$HOME/.local/share/applications" \
+      --include='*.desktop' 2>/dev/null | xargs -r -n1 basename | sed 's/\.desktop$//' | sort)
+    if ((${#apps[@]})); then
+      menu "Installed web apps" "$(printf '%s\n' "${apps[@]}")" >/dev/null
+    else
+      notify-send "pfx" "No web apps installed yet."
+    fi
+    show_webapp_menu
+    ;;
+  *) back_to ;;
+  esac
+}
+
+show_style_menu() {
+  case $(menu "Style" "Theme\nWallpaper\nEdit theme") in
+  *"Theme"*) show_theme_menu ;;
+  *Wallpaper*) pfx-theme-bg-next >/dev/null ;;
+  *"Edit theme"*) edit_config "$HOME/.config/pfx/themes" ;;
+  *) back_to ;;
+  esac
+}
+
+show_theme_menu() {
+  local themes selection
+  themes=$(pfx-theme-list)
+  selection=$(menu "Theme" "$themes")
+  [[ -n $selection ]] || back_to show_style_menu
+  pfx-theme-set "$selection" >/dev/null
+}
+
+show_capture_menu() {
+  case $(menu "Capture" "Region\nWindow\nWhole screen\nRecord") in
+  *Region*) pfx-capture-screenshot region >/dev/null ;;
+  *Window*) pfx-capture-screenshot window >/dev/null ;;
+  *"Whole screen"*) pfx-capture-screenshot output >/dev/null ;;
+  *Record*) pfx-capture-screenrecord region ;;
+  *) back_to ;;
+  esac
+}
+
+show_install_menu() {
+  case $(menu "Install" "Browser\nEditor\nTerminal\nDevelopment\nMedia\nPackage…") in
+  *Browser*) show_install_browser_menu ;;
+  *Editor*) show_install_editor_menu ;;
+  *Terminal*) show_install_terminal_menu ;;
+  *Development*) show_install_development_menu ;;
+  *Media*) show_install_media_menu ;;
+  *"Package…"*) in_terminal "read -rp 'Package name: ' p && pfx-pkg-add \$p" ;;
+  *) back_to ;;
+  esac
+}
+
+show_install_browser_menu() {
+  case $(menu "Browser" "Firefox\nChromium\nBrave\nVivaldi") in
+  *Firefox*) install_pkg "Firefox" "firefox" ;;
+  *Chromium*) install_pkg "Chromium" "chromium" ;;
+  *Brave*) install_aur "Brave" "brave-bin" ;;
+  *Vivaldi*) install_pkg "Vivaldi" "vivaldi" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_editor_menu() {
+  case $(menu "Editor" "Neovim\nHelix\nVS Code\nZed") in
+  *Neovim*) install_pkg "Neovim" "neovim" ;;
+  *Helix*) install_pkg "Helix" "helix" ;;
+  *"VS Code"*) install_aur "VS Code" "visual-studio-code-bin" ;;
+  *Zed*) install_pkg "Zed" "zed" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_terminal_menu() {
+  case $(menu "Terminal" "Alacritty\nKitty\nFoot\nGhostty") in
+  *Alacritty*) install_pkg "Alacritty" "alacritty" ;;
+  *Kitty*) install_pkg "Kitty" "kitty" ;;
+  *Foot*) install_pkg "Foot" "foot" ;;
+  *Ghostty*) install_pkg "Ghostty" "ghostty" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_development_menu() {
+  case $(menu "Development" "Docker\nRust\nGo\nNode\nPython tooling") in
+  *Docker*) install_pkg "Docker" "docker docker-compose" ;;
+  *Rust*) install_pkg "Rust" "rustup" ;;
+  *Go*) install_pkg "Go" "go" ;;
+  *Node*) install_pkg "Node" "nodejs npm" ;;
+  *"Python tooling"*) install_pkg "Python tooling" "python-pip python-virtualenv uv" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_media_menu() {
+  case $(menu "Media" "VLC\nmpv\nOBS Studio\nGIMP\nInkscape") in
+  *VLC*) install_pkg "VLC" "vlc" ;;
+  *mpv*) install_pkg "mpv" "mpv" ;;
+  *"OBS Studio"*) install_pkg "OBS Studio" "obs-studio" ;;
+  *GIMP*) install_pkg "GIMP" "gimp" ;;
+  *Inkscape*) install_pkg "Inkscape" "inkscape" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_remove_menu() {
+  case $(menu "Remove" "Web app\nPackage…") in
+  *"Web app"*) pfx-webapp-remove ;;
+  *"Package…"*) in_terminal "read -rp 'Package name: ' p && pfx-pkg-remove \$p" ;;
+  *) back_to ;;
+  esac
+}
+
+show_learn_menu() {
+  case $(menu "Learn" "Keybindings\nHyprland wiki\nArch wiki\npfx README") in
+  *Keybindings*) pfx-menu-keybindings ;;
+  *"Hyprland wiki"*) open_url "https://wiki.hypr.land/" ;;
+  *"Arch wiki"*) open_url "https://wiki.archlinux.org/" ;;
+  *"pfx README"*) edit_config "${PFX_PATH:-$HOME/.local/share/pfx}/README.md" ;;
+  *) back_to ;;
+  esac
+}
+
+show_config_menu() {
+  case $(menu "Config" "Keybindings\nMonitors\nInput\nLook & feel\nAutostart\nWaybar") in
+  *Keybindings*) edit_config "$HOME/.config/hypr/bindings.conf" ;;
+  *Monitors*) edit_config "$HOME/.config/hypr/monitors.conf" ;;
+  *Input*) edit_config "$HOME/.config/hypr/input.conf" ;;
+  *"Look & feel"*) edit_config "$HOME/.config/hypr/looknfeel.conf" ;;
+  *Autostart*) edit_config "$HOME/.config/hypr/autostart.conf" ;;
+  *Waybar*) edit_config "$HOME/.config/waybar/config.jsonc" ;;
+  *) back_to show_system_menu ;;
+  esac
+}
+
+show_system_menu() {
+  case $(menu "System" "Config\nRestart waybar\nLock\nSuspend\nReboot\nShut down\nLog out") in
+  *Config*) show_config_menu ;;
+  *"Restart waybar"*) pfx-restart waybar >/dev/null ;;
+  *Lock*) loginctl lock-session 2>/dev/null || hyprlock ;;
+  *Suspend*) systemctl suspend ;;
+  *Reboot*) systemctl reboot ;;
+  *"Shut down"*) systemctl poweroff ;;
+  *"Log out"*) uwsm stop 2>/dev/null || hyprctl dispatch exit ;;
+  *) back_to ;;
+  esac
+}
+
+show_main_menu() {
+  case $(menu "Go" "󰀻  Apps\n󰖟  Web apps\n󰏘  Style\n󰄀  Capture\n󰉉  Install\n󰆴  Remove\n󰧑  Learn\n󰒓  System") in
+  *Apps*) show_apps_menu ;;
+  *"Web apps"*) show_webapp_menu ;;
+  *Style*) show_style_menu ;;
+  *Capture*) show_capture_menu ;;
+  *Install*) show_install_menu ;;
+  *Remove*) show_remove_menu ;;
+  *Learn*) show_learn_menu ;;
+  *System*) show_system_menu ;;
+  *) exit 0 ;;
+  esac
+}
+
+# ---------------------------------------------------------------- entry
+
+close_if_open
+
+if (($# > 0)); then
+  JUMPED_DIRECTLY=true
+  case "$1" in
+  apps) show_apps_menu ;;
+  webapps | webapp) show_webapp_menu ;;
+  style | theme) show_style_menu ;;
+  capture) show_capture_menu ;;
+  install) show_install_menu ;;
+  remove) show_remove_menu ;;
+  learn) show_learn_menu ;;
+  system) show_system_menu ;;
+  config) show_config_menu ;;
+  *)
+    echo "pfx-menu: unknown submenu '$1'" >&2
+    echo "One of: apps webapps style capture install remove learn system config" >&2
+    exit 1
+    ;;
+  esac
+else
+  show_main_menu
+fi

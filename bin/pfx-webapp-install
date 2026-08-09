@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# pfx:summary=Turn a URL into a launcher entry that opens as its own app window.
+#
+# Usage:
+#   pfx-webapp-install                          # interactive
+#   pfx-webapp-install <name> <url> [icon-url]  # scripted
+#
+# Writes a .desktop file into ~/.local/share/applications, which is all it
+# takes for the app to show up in the launcher, in alt-tab, and in the
+# window manager as a first-class application.
+
+set -eo pipefail
+
+APPS_DIR="$HOME/.local/share/applications"
+ICON_DIR="$APPS_DIR/icons"
+
+if (($# < 2)); then
+  command -v gum >/dev/null 2>&1 || {
+    echo "Usage: pfx-webapp-install <name> <url> [icon-url]" >&2
+    exit 1
+  }
+  echo "Create a web app you can start from the launcher."
+  echo
+  name=$(gum input --prompt "Name> " --placeholder "Grafana")
+  url=$(gum input --prompt "URL>  " --placeholder "https://grafana.example.com")
+  icon_ref=""
+else
+  name="$1"
+  url="$2"
+  icon_ref="${3:-}"
+fi
+
+[[ -n $name && -n $url ]] || {
+  echo "pfx-webapp-install: name and URL are both required." >&2
+  exit 1
+}
+
+# Accept "example.com" as well as a full URL.
+[[ $url =~ ^[a-zA-Z][a-zA-Z0-9+.-]*: ]] || url="https://$url"
+
+mkdir -p "$ICON_DIR"
+
+icon_path="$ICON_DIR/${name}.png"
+[[ -n $icon_ref ]] || icon_ref="https://www.google.com/s2/favicons?domain=${url}&sz=128"
+
+if [[ $icon_ref =~ ^https?:// ]]; then
+  # A missing icon is a cosmetic problem, never a reason to fail the install —
+  # the launcher entry is still perfectly usable with a generic icon.
+  if curl -fsSL --max-time 10 -o "$icon_path" "$icon_ref" && [[ -s $icon_path ]]; then
+    icon_value="$icon_path"
+  else
+    rm -f "$icon_path"
+    echo "Could not fetch an icon; using a generic one." >&2
+    icon_value="applications-internet"
+  fi
+else
+  icon_value="$icon_ref"
+fi
+
+desktop_file="$APPS_DIR/${name}.desktop"
+
+cat >"$desktop_file" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=$name
+Comment=$name
+Exec=pfx-launch-webapp $url
+Icon=$icon_value
+Terminal=false
+StartupNotify=true
+Categories=Network;
+EOF
+
+chmod +x "$desktop_file"
+
+# Refresh the launcher index so the entry is visible without a re-login.
+command -v update-desktop-database >/dev/null 2>&1 &&
+  update-desktop-database "$APPS_DIR" 2>/dev/null || true
+
+echo "Installed '$name'. Find it with SUPER + SPACE."

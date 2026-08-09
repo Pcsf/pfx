@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# pfx:summary=Print the name of the theme currently applied.
+
+set -eo pipefail
+
+PFX_CONFIG="${PFX_CONFIG:-$HOME/.config/pfx}"
+
+if [[ -f $PFX_CONFIG/current/theme.name ]]; then
+  cat "$PFX_CONFIG/current/theme.name"
+else
+  echo "none"
+  exit 1
+fi

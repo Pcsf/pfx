@@ -1,0 +1,127 @@
+#!/bin/bash
+#
+# pfx:summary=Show every keybinding Hyprland has loaded, searchable.
+#
+# Usage: pfx-menu-keybindings [--print]
+#
+# This reads `hyprctl binds` plain-text output, NOT `hyprctl -j binds`. The JSON
+# serializer is broken in Hyprland 0.56.0 — added struct fields shifted every
+# value one slot and left strings unquoted in numeric positions, so the document
+# fails to parse and any jq-based reader silently returns nothing. The plain-text
+# formatter has been stable and correct across every version checked.
+
+set -eo pipefail
+
+declare -A KEYCODE_SYMBOLS
+
+# Hyprland reports some binds by raw evdev keycode rather than by name. Compile
+# the active keymap once and build a lookup so those render as real key names.
+build_keycode_map() {
+  local keymap
+  keymap=$(xkbcli compile-keymap 2>/dev/null) || return 0
+
+  while IFS=, read -r code symbol; do
+    [[ -n $code && -n $symbol ]] && KEYCODE_SYMBOLS["$code"]="$symbol"
+  done < <(
+    awk '
+      /xkb_keycodes/ { section = "codes"; next }
+      /xkb_symbols/  { section = "syms";  next }
+      section == "codes" && match($0, /<([A-Za-z0-9_]+)>[[:space:]]*=[[:space:]]*([0-9]+)/, m) {
+        code_by_name[m[1]] = m[2]
+      }
+      section == "syms" && match($0, /key[[:space:]]*<([A-Za-z0-9_]+)>[[:space:]]*\{[[:space:]]*\[[[:space:]]*([^,	 \]]+)/, m) {
+        sym_by_name[m[1]] = m[2]
+      }
+      END {
+        for (k in code_by_name)
+          if (sym_by_name[k] != "" && sym_by_name[k] != "NoSymbol")
+            print code_by_name[k] "," sym_by_name[k]
+      }
+    ' <<<"$keymap"
+  )
+}
+
+# Hyprland encodes modifiers as a bitmask. These are the combinations that
+# actually occur in practice; anything else falls through as the raw number.
+modmask_to_text() {
+  case "$1" in
+  0) echo "" ;;
+  1) echo "SHIFT" ;;
+  4) echo "CTRL" ;;
+  5) echo "CTRL SHIFT" ;;
+  8) echo "ALT" ;;
+  9) echo "ALT SHIFT" ;;
+  12) echo "CTRL ALT" ;;
+  13) echo "CTRL ALT SHIFT" ;;
+  64) echo "SUPER" ;;
+  65) echo "SUPER SHIFT" ;;
+  68) echo "SUPER CTRL" ;;
+  69) echo "SUPER CTRL SHIFT" ;;
+  72) echo "SUPER ALT" ;;
+  73) echo "SUPER ALT SHIFT" ;;
+  76) echo "SUPER CTRL ALT" ;;
+  77) echo "SUPER CTRL ALT SHIFT" ;;
+  *) echo "MOD$1" ;;
+  esac
+}
+
+# Parse the plain-text output into "modmask<TAB>key<TAB>keycode<TAB>description<TAB>dispatcher<TAB>arg"
+parse_binds() {
+  hyprctl binds | awk '
+    function emit() {
+      if (started)
+        printf "%s\t%s\t%s\t%s\t%s\t%s\n", modmask, key, keycode, description, dispatcher, arg
+      started = 0; modmask = ""; key = ""; keycode = ""; description = ""; dispatcher = ""; arg = ""
+    }
+    /^bind/ { emit(); started = 1; next }
+    started && match($0, /^[ \t]+([a-z_]+):[ ]?(.*)$/, m) {
+      value = m[2]; sub(/[ \t]+$/, "", value)
+      if      (m[1] == "modmask")     modmask = value
+      else if (m[1] == "key")         key = value
+      else if (m[1] == "keycode")     keycode = value
+      else if (m[1] == "description") description = value
+      else if (m[1] == "dispatcher")  dispatcher = value
+      else if (m[1] == "arg")         arg = value
+    }
+    END { emit() }
+  '
+}
+
+format_binds() {
+  local modmask key keycode description dispatcher arg combo action
+
+  while IFS=$'\t' read -r modmask key keycode description dispatcher arg; do
+    # Resolve a raw keycode into a key name when Hyprland gave us a number.
+    if [[ -z $key && $keycode != "0" && -n $keycode ]]; then
+      key="${KEYCODE_SYMBOLS[$keycode]:-code:$keycode}"
+    fi
+    [[ -n $key ]] || continue
+
+    combo="$(modmask_to_text "$modmask")"
+    combo="${combo:+$combo + }$key"
+
+    # A `bindd` gives us a human description; anything else shows its command,
+    # with pfx's own bin path stripped so the list stays readable.
+    if [[ -n $description ]]; then
+      action="$description"
+    else
+      action="${dispatcher}${arg:+ $arg}"
+      action="${action//$HOME\/.local\/share\/pfx\/bin\//}"
+      action="${action//uwsm-app -- /}"
+    fi
+
+    printf '%-34s → %s\n' "$combo" "$action"
+  done
+}
+
+build_keycode_map
+output=$(parse_binds | format_binds | sort -u)
+
+if [[ $1 == --print || $1 == -p ]]; then
+  printf '%s\n' "$output"
+  exit 0
+fi
+
+height=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true) | .height' || echo 1080)
+printf '%s\n' "$output" |
+  pfx-launch-walker --dmenu -p 'Keybindings…' --width 800 --height $((height * 45 / 100)) >/dev/null

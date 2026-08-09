@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# pfx:summary=Screenshot a region, window, or the whole output.
+#
+# Usage: pfx-capture-screenshot [region|window|output]
+
+set -eo pipefail
+
+mode="${1:-region}"
+dir="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
+mkdir -p "$dir"
+file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
+
+case "$mode" in
+region)
+  geometry=$(slurp -d) || exit 0
+  grim -g "$geometry" - >"$file"
+  ;;
+window)
+  geometry=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
+  grim -g "$geometry" - >"$file"
+  ;;
+output)
+  grim - >"$file"
+  ;;
+*)
+  echo "Usage: pfx-capture-screenshot [region|window|output]" >&2
+  exit 1
+  ;;
+esac
+
+wl-copy <"$file"
+notify-send -i "$file" "Screenshot saved" "$(basename "$file") — copied to clipboard"
+echo "$file"

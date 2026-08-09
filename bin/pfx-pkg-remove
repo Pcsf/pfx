@@ -1,0 +1,31 @@
+#!/bin/bash
+#
+# pfx:summary=Remove packages and any dependencies they alone pulled in.
+#
+# Usage: pfx-pkg-remove <package>...
+#
+# Refuses to remove anything in the pfx base set — those packages are what make
+# the desktop work, and removing one from a menu would be a very confusing way
+# to break your session.
+
+set -eo pipefail
+
+PFX_PATH="${PFX_PATH:-$HOME/.local/share/pfx}"
+
+(($#)) || {
+  echo "Usage: pfx-pkg-remove <package>..." >&2
+  exit 1
+}
+
+base_list="$PFX_PATH/install/packages.txt"
+if [[ -f $base_list ]]; then
+  for pkg in "$@"; do
+    if grep -qx "[[:space:]]*$pkg[[:space:]]*" "$base_list"; then
+      echo "pfx-pkg-remove: '$pkg' is part of the pfx base install and will not be removed." >&2
+      echo "Remove it by hand with pacman if you really mean it." >&2
+      exit 1
+    fi
+  done
+fi
+
+exec sudo pacman -Rns --noconfirm "$@"
