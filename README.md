@@ -33,7 +33,7 @@ built from source in step 20.
 ### Then
 
 ```bash
-git clone git@github.com:<you>/pfx ~/pfx
+git clone https://github.com/Pcsf/pfx ~/pfx
 cd ~/pfx
 ./install.sh --dry-run   # see exactly what it will do, change nothing
 ./install.sh             # do it
