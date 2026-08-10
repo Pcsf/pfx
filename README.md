@@ -7,18 +7,40 @@ release channels.
 
 ## Install
 
-Install Arch normally (base system, a user account, a network connection),
-then:
+### What you need first
+
+**Vanilla Arch, and nothing else.** Do *not* install Hyprland beforehand — pfx
+installs it, along with the bar, the launcher, the fonts and everything else.
+`hyprland`, `hyprlock`, `hypridle`, `uwsm`, `waybar`, `base-devel` and `git`
+are all in `install/packages.txt`.
+
+Run `archinstall` with a **minimal profile, no desktop environment**, and make
+sure you end up with:
+
+| Requirement | Why |
+|---|---|
+| A normal user account in the `wheel` group, with sudo working | `install.sh` refuses to run as root and asks for sudo once |
+| A working network connection | ~1 GB of packages get downloaded |
+| `git` installed (`sudo pacman -S git`) | Arch's `base` does not include it, and you need it to clone |
+
+Preflight will stop you if any of these are missing: it checks for
+`/etc/arch-release`, refuses to run as root, requires `pacman`, and requires
+sudo to authenticate. A missing network is only a warning.
+
+You do **not** need an AUR helper — `base-devel` arrives in step 10 and yay is
+built from source in step 20.
+
+### Then
 
 ```bash
-git clone https://github.com/<you>/pfx ~/pfx
+git clone git@github.com:<you>/pfx ~/pfx
 cd ~/pfx
-./install.sh --dry-run   # see exactly what it will do
+./install.sh --dry-run   # see exactly what it will do, change nothing
 ./install.sh             # do it
 ```
 
-You will be asked for your sudo password once, early. Log out afterwards and
-start the session from a TTY:
+You will be asked for your sudo password once, early; the rest is unattended.
+Log out afterwards and start the session from a TTY:
 
 ```bash
 uwsm start hyprland-uwsm.desktop
@@ -26,6 +48,75 @@ uwsm start hyprland-uwsm.desktop
 
 Press <kbd>SUPER</kbd>+<kbd>K</kbd> for the keybinding list and
 <kbd>SUPER</kbd>+<kbd>ALT</kbd>+<kbd>SPACE</kbd> for the menu.
+
+### After: the machine-specific bits
+
+pfx deliberately ships no hardware quirk handling, so three things are yours to
+set on a real machine.
+
+**Keyboard.** The shipped default is a bare `kb_layout = us`. Drop your own
+settings into `~/.config/hypr/input.conf`, which is sourced *after* the
+defaults and therefore wins:
+
+```
+input {
+    kb_layout = us
+    kb_options = compose:caps    # Caps Lock becomes Compose: ç, á, ê, ü, …
+
+    repeat_rate = 40             # faster key repeat than the default
+    repeat_delay = 250           # and a shorter wait before it starts
+    numlock_by_default = true
+
+    touchpad {
+        clickfinger_behavior = true
+        scroll_factor = 0.4
+    }
+}
+```
+
+`compose:caps` is the useful part on a US layout: Compose then `'` then `c`
+gives `ç`, Compose `'` `a` gives `á`, and so on — accented characters without
+giving up a US keyboard. To add a second layout instead, use a group toggle:
+
+```
+kb_layout = us,br
+kb_options = compose:caps,grp:alt_shift_toggle    # Alt+Shift switches layout
+```
+
+Toggle names come from the xkb rules, not from Hyprland. There are 45 of them —
+`grp:alt_shift_toggle` (Alt+Shift), `grp:alts_toggle` (both Alts together) and
+`grp:caps_toggle` are the common ones. List them all with:
+
+```bash
+grep -E '^  grp:' /usr/share/X11/xkb/rules/base.lst
+```
+
+Same file lists every `compose:` option, if you would rather put Compose
+somewhere other than Caps Lock.
+
+Set the console and X11 layouts to match while you are at it, so the TTY and
+XWayland agree with Hyprland:
+
+```bash
+sudo localectl set-keymap us
+sudo localectl set-x11-keymap us pc105 "" compose:caps
+```
+
+**Input method (optional).** If you type languages that need composition
+beyond a Compose key, pfx does not install one. Add it yourself:
+
+```bash
+pfx pkg add fcitx5 fcitx5-gtk fcitx5-qt fcitx5-configtool
+```
+
+then export `GTK_IM_MODULE`, `QT_IM_MODULE` and `XMODIFIERS` in
+`~/.config/hypr/envs.conf` and start it from `~/.config/hypr/autostart.conf`.
+
+**Monitors and GPU.** Set your real display layout in
+`~/.config/hypr/monitors.conf` (`hyprctl monitors` lists what is attached); the
+shipped `preferred, auto, auto` handles one screen but will not place two
+sensibly. NVIDIA also needs `nvidia`/`nvidia-utils` and kernel parameters that
+pfx does not install.
 
 ## The one structural idea
 
