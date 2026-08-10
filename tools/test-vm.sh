@@ -18,6 +18,7 @@
 #   ./tools/test-vm.sh --install  boot, sync the repo, run install.sh, reboot
 #   ./tools/test-vm.sh --gui      boot with a virtual GPU and start Hyprland
 #   ./tools/test-vm.sh --ssh      shell into a running VM
+#   ./tools/test-vm.sh --wake     wake a guest that suspended itself
 #   ./tools/test-vm.sh --stop     shut the VM down
 #   ./tools/test-vm.sh --fresh    discard the disk and start over
 #   ./tools/test-vm.sh --clean    delete everything including the base image
@@ -90,6 +91,28 @@ PROFILE
 # follows, or run the VM with --fullscreen.
 monitor = , 1920x1080@60, 0x0, 1
 MONITORS
+
+  # Idle management OFF in the VM.
+  #
+  # The shipped timeouts are right for a laptop and wrong for a test machine:
+  # after 11 minutes untouched the display goes DPMS-off and QEMU reports
+  # "Display output is not active", and after 30 it runs `systemctl suspend`,
+  # which freezes the guest and kills ssh. Both look exactly like a crash.
+  #
+  # To test the real idle behaviour, comment this file out and shorten the
+  # timeouts in ~/.config/hypr/hypridle.conf instead of waiting them out.
+  ssh_vm "cat > ~/.config/hypr/hypridle.conf" <<'HYPRIDLE'
+# VM override, written by tools/test-vm.sh — no idle actions.
+# The shipped config dims at 5min, locks at 10, blanks at 11 and suspends at
+# 30. In a VM the last two are indistinguishable from a hang.
+general {
+    lock_cmd = pidof hyprlock || hyprlock
+    before_sleep_cmd = loginctl lock-session
+    after_sleep_cmd = hyprctl dispatch dpms on
+}
+HYPRIDLE
+
+  ssh_vm "pkill -x hypridle; setsid hypridle >/dev/null 2>&1 &" || true
 }
 
 # ---------------------------------------------------------------- arguments
@@ -103,6 +126,7 @@ for arg in "$@"; do
   --gui) mode="gui" ;;
   --fullscreen) fullscreen=true ;;
   --ssh) mode="ssh" ;;
+  --wake) mode="wake" ;;
   --stop) mode="stop" ;;
   --fresh)
     fresh=true
@@ -130,6 +154,17 @@ if [[ $mode == stop ]]; then
   ssh_vm "sudo systemctl poweroff" 2>/dev/null || kill "$(<"$PIDFILE")"
   rm -f "$PIDFILE"
   ok "VM stopped"
+  exit 0
+fi
+
+if [[ $mode == wake ]]; then
+  vm_running || die "No VM is running."
+  [[ -S $MONITOR ]] || die "No monitor socket. Restart the VM to get one."
+  # A guest that ran `systemctl suspend` is frozen in S3 and will not answer
+  # ssh or repaint the display; ACPI wake is the only way back in.
+  printf 'system_wakeup\n' | socat - "unix-connect:$MONITOR" >/dev/null 2>&1 ||
+    die "Could not reach the monitor socket (is socat installed?)"
+  ok "sent an ACPI wake-up"
   exit 0
 fi
 
@@ -241,6 +276,9 @@ qemu_args=(
   -device virtio-net-pci,netdev=net0
   -device virtio-rng-pci
   -pidfile "$PIDFILE"
+  # A control socket, so a guest that suspended itself can be woken with
+  # `--wake` instead of being killed and rebooted.
+  -monitor "unix:$MONITOR,server,nowait"
 )
 
 if [[ $mode == gui ]]; then

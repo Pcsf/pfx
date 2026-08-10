@@ -137,8 +137,13 @@ base system arrives ready and cloud-init creates the user. The disk is a
 copy-on-write overlay, so `--fresh` throws it away and the next boot is a
 pristine Arch system.
 
-Requires `qemu-desktop`, `cloud-image-utils`, and membership of the `kvm`
-group.
+Requires `qemu-desktop` and `cloud-image-utils`.
+
+Idle management is disabled inside the VM. The shipped `hypridle.conf` blanks
+the display after 11 minutes and suspends the machine after 30 — correct for a
+laptop, but in a VM both are indistinguishable from a crash (QEMU reports
+"Display output is not active", then ssh stops answering). If a VM does freeze,
+`./tools/test-vm.sh --wake` sends an ACPI wake-up rather than making you reboot.
 
 ## Updating
 
