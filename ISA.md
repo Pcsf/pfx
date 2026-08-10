@@ -219,6 +219,7 @@ Incidental finding: Hyprland **0.56.2 fixes the `hyprctl -j binds` serializer** 
 | VM frozen, ssh dead | `hypridle` `systemctl suspend` at 30min | same, plus `--wake` via the QEMU monitor |
 | VM vanishes when testing a keybinding | host compositor owns `SUPER`; QEMU does not grab by default | `grab-on-hover=on` |
 | VM dies when its window is closed | host WM close terminates QEMU | `window-close=off` |
+| Text looks clipped along the top | QEMU rescaling a 1920x1080 guest into a 1896x1030 window (~5% vertical squash) | `show-menubar=off` + `--fullscreen` for 1:1 pixels. **Not** `zoom-to-fit=off`, which crops instead |
 
 **Testing ladder**
 

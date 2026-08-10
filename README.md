@@ -139,6 +139,13 @@ pristine Arch system.
 
 Requires `qemu-desktop` and `cloud-image-utils`.
 
+**Run the VM fullscreen** (`--fullscreen`). QEMU rescales the guest framebuffer
+to whatever size the window is, so a 1920x1080 guest in a slightly smaller
+window gets squashed a few percent vertically — which shaves a pixel row off
+every glyph and makes the text look clipped along the top, as though the font
+were bad. The guest is rendering it perfectly. Fullscreen with the menu bar off
+makes the window exactly the monitor size, so pixels map one-to-one.
+
 **The QEMU window grabs the keyboard on hover.** Without that, every `SUPER`
 binding you press goes to the compositor you are sitting in, not to the VM —
 pressing `SUPER+W` to test pfx's close binding makes *your* window manager

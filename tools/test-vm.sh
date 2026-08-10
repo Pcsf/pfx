@@ -300,9 +300,25 @@ if [[ $mode == gui ]]; then
   #   window-close=off   Stops the window manager (or a stray click on the X)
   #                      from terminating QEMU and taking the running VM with
   #                      it. Shut the VM down with --stop instead.
+  #
+  #   show-menubar=off   THE font-quality setting, indirectly.
+  #
+  #                      QEMU rescales the guest framebuffer to fit the window.
+  #                      With the menu bar taking ~25px, a 1920x1080 guest was
+  #                      being squashed into a 1896x1030 window — about 5%
+  #                      vertically, which shaves a pixel row off every glyph.
+  #                      Text then looks clipped along the top and reads as a
+  #                      bad font, when the guest is in fact rendering it
+  #                      perfectly. Dropping the menu bar makes a fullscreen
+  #                      window exactly the monitor size, so the scale factor
+  #                      is 1.0 and pixels map one-to-one.
+  #
+  #                      Do NOT "fix" this with zoom-to-fit=off: that stops the
+  #                      scaling by CROPPING the framebuffer instead, so the bar
+  #                      and half the desktop simply vanish off the edge.
   qemu_args+=(
     -device virtio-vga-gl
-    -display gtk,gl=on,show-cursor=on,grab-on-hover=on,window-close=off
+    -display gtk,gl=on,show-cursor=on,grab-on-hover=on,window-close=off,show-menubar=off
     -device qemu-xhci -device usb-tablet -device usb-kbd
   )
   $fullscreen && qemu_args+=(-full-screen)
