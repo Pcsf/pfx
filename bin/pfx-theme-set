@@ -59,13 +59,24 @@ echo "$name" >"$CURRENT/theme.name"
 # Drop staged themes that are no longer referenced.
 find "$CURRENT/staged" -mindepth 1 -maxdepth 1 -type d ! -name "$name" -exec rm -rf {} + 2>/dev/null || true
 
-# Tell everything that's running to re-read its colours. Each of these is a
-# no-op when the app isn't running, which is why none of them are guarded.
+# Tell everything that's running to re-read its colours.
+#
+# Every signal here is scoped to THIS Hyprland instance. An unscoped
+# `pkill -SIGUSR2 waybar` hits every bar the user owns, and SIGUSR2 resets the
+# bar — which is how a theme change inside a nested test session repeatedly
+# reset, and eventually killed, the bar on the real desktop.
+#
+# With no instance signature at all (installing from a plain shell, or over
+# SSH) there is no session to signal, so the whole block is skipped rather than
+# broadcast to whatever happens to be running.
 if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
   hyprctl reload >/dev/null 2>&1 || true
+
+  bars=$(pfx-session-pids waybar 2>/dev/null || true)
+  [[ -n $bars ]] && kill -SIGUSR2 $bars 2>/dev/null || true
+
+  makoctl reload 2>/dev/null || true
 fi
-pkill -SIGUSR2 waybar 2>/dev/null || true
-makoctl reload 2>/dev/null || true
 
 # Alacritty, walker and btop pick up the change on their own — alacritty watches
 # its imports, and the other two re-read on launch.

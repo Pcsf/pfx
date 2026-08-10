@@ -4,7 +4,7 @@ slug: 20260809-pfx-arch-hyprland-toolkit
 effort: extended
 effort_source: auto
 phase: complete
-progress: 29/29
+progress: 33/33
 mode: iterate
 started: 2026-08-09T08:45:00Z
 updated: 2026-08-09T09:25:00Z
@@ -96,6 +96,13 @@ A `pfx` repository whose `install.sh`, run once on vanilla Arch, produces a work
 - [x] ISC-20: Every package named in an install-menu entry resolves in the Arch repos or AUR. *(probe: extract all `pfx-pkg-add`/`pfx-pkg-aur-add` arguments from the menu, resolve each)*
 - [x] ISC-21: `pfx-pkg-add` is non-interactive and refuses to run with an empty argument list. *(probe: invoke with no args, assert non-zero exit and no pacman call)*
 - [x] ISC-22: The remove menu never offers a package that is part of the base install set. *(probe: intersect remove-menu package names with `install/packages.txt`; assert empty)*
+
+**Launcher backend**
+
+- [x] ISC-30: Every provider named in the walker config is carried by a package the installer requests. *(probe: intersect `config.toml` providers against the AUR `Provides` of every elephant package in `packages-aur.txt`)*
+- [x] ISC-31: The walker theme uses walker 2.16 row selectors, so the selection highlight renders. *(probe: `child:selected` present, `.item:selected` absent)*
+- [x] ISC-32: `theme` and `additional_theme_location` resolve at TOML top level, not swallowed by a `[table]`. *(probe: `tomllib.load`, assert both are root keys)*
+- [x] ISC-33: No command signals a session process it does not own, and the nested harness runs the installer with no instance signature. *(probe: grep `bin/` for unscoped `pkill`/`killall` of waybar/mako/hyprpaper/walker/elephant; assert `env -u HYPRLAND_INSTANCE_SIGNATURE` in test-nested.sh)*
 
 **Testing harness**
 
@@ -217,6 +224,16 @@ No rung supersedes another. The container cannot start a compositor (`CBackend::
 3. `install.sh` assumed `~/.config` existed — false on a genuinely fresh account.
 4. Window rules used pre-0.53 syntax (`class:^(...)$`); `dwindle:pseudotile`, `misc:vfr` and the `gestures {}` block no longer exist; `togglesplit` is a `layoutmsg`, not a dispatcher. Eleven config errors, all found by ISC-24 and none visible without it.
 5. Sixty of 68 menu entries silently lost their icon glyphs, and two surviving choices were semantically wrong — Remove rendered as a **power symbol**. Menu now carries eight verified glyphs; ISC-6b locks it.
+
+**Third pass (2026-08-10), after "I couldn't see the menu and walker working":**
+
+9. **The application launcher was completely broken and every screenshot had hidden it.** Walker 2.x delegates all data to a separate `elephant` daemon. `walker-bin` depends on bare `elephant`, which ships *no providers*; `elephant-all` — which carries `desktopapplications`, `calc`, `files`, `symbols` — is merely an **optional** dependency. So `SUPER+SPACE`, the most-used key on the desktop, would have opened an empty list with no error in any log. Every menu screenshot used `--dmenu`, which needs no providers at all, so the gap was invisible to all 29 probes. `elephant-all` is now installed from the AUR and started before walker in autostart; ISC-30 checks the config-to-package mapping.
+
+10. **The walker theme's CSS class names were wrong.** Walker 2.16 calls a list row `child` and the selected row `child:selected .item-box`; pfx styled `.item:selected`, which parses fine and matches nothing. The result was a menu with no selection highlight — no feedback about what Enter would do. ISC-31 locks the selector.
+
+11. `hide_action_hints = true` does not hide the F1–F4 badges; those are `quick_activate`, a separate `[keybinds]` setting. Fixed, and the config was rewritten so every top-level key precedes the first `[table]` — TOML would otherwise have folded `theme` into `[keybinds]`, silently leaving walker on its default theme. ISC-32 asserts the ordering.
+
+12. **The nested harness signalled the real desktop and eventually killed its bar.** `install.sh`'s theme step runs `pfx-theme-set`, and `test-nested.sh` ran the installer in the invoking shell — which carries the *real* session's `HYPRLAND_INSTANCE_SIGNATURE`. So every nested test ran `hyprctl reload` and `pkill -SIGUSR2 waybar` against the live session; SIGUSR2 resets the bar, and repeated resets left it dead. Two causes, both fixed: `pfx-theme-set` still had an unscoped `pkill` that the earlier sweep missed, and the harness must strip the signature before the install, not only at launch. ISC-33 covers the whole class and was validated by reintroducing the exact line and watching it fail.
 
 **Second pass (2026-08-10), building the test harnesses:**
 

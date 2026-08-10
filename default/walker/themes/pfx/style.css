@@ -2,6 +2,12 @@
  *
  * Colours come from the active pfx theme. GTK resolves @import relative to
  * this file, which is why the path climbs seven levels to reach $HOME.
+ *
+ * Class names here are walker 2.16's, and they are not what you would guess:
+ * a list row is `child`, and the selected row is `child:selected .item-box`,
+ * NOT `.item:selected`. Getting this wrong costs you the selection highlight
+ * with no error anywhere — the menu simply gives no feedback about what
+ * pressing Enter will do.
  */
 @import "../../../../../../../.config/pfx/current/theme/walker.css";
 
@@ -24,18 +30,18 @@ scrollbar {
 
 .box-wrapper {
   background: alpha(@base, 0.96);
-  padding: 18px;
+  padding: 16px;
   border: 2px solid @border;
   border-radius: 12px;
 }
 
 .search-container {
-  background: alpha(@surface, 0.6);
-  padding: 10px 12px;
+  background: alpha(@surface, 0.55);
+  padding: 10px 14px;
   border-radius: 8px;
 }
 
-.input placeholder { opacity: 0.45; }
+.input placeholder { opacity: 0.4; }
 
 .input:focus,
 .input:active {
@@ -43,27 +49,72 @@ scrollbar {
   outline: none;
 }
 
-.item {
-  padding: 7px 10px;
+/* --- list rows --------------------------------------------------------- */
+
+child {
   border-radius: 6px;
 }
 
-.item:selected {
+child:hover .item-box {
+  background: alpha(@text, 0.06);
+}
+
+/* The selected row. Both rules are needed: the first paints the row, the
+ * second overrides the inherited colour on the label inside it. */
+child:selected .item-box {
   background: @accent;
+}
+
+child:selected .item-box * {
   color: @base;
 }
 
-.item .subtext {
-  opacity: 0.55;
-  font-size: 13px;
+.item-box {
+  padding-left: 12px;
+  border-radius: 6px;
 }
+
+.item-text-box {
+  all: unset;
+  padding: 9px 0;
+}
+
+.item-text {
+  color: @text;
+}
+
+/* Subtext is collapsed rather than hidden: walker still reserves its height
+ * otherwise, which makes every row half again as tall. */
+.item-subtext {
+  font-size: 0px;
+  min-height: 0px;
+  margin: 0px;
+  padding: 0px;
+}
+
+.item-image {
+  margin-right: 12px;
+  -gtk-icon-transform: scale(0.9);
+}
+
+.current { font-style: italic; }
+
+/* --- chrome ------------------------------------------------------------ */
 
 .placeholder,
 .elephant-hint {
-  opacity: 0.4;
+  opacity: 0.35;
   padding: 12px;
 }
 
-.keybinds { opacity: 0.4; font-size: 12px; }
+.keybind-hints,
+.keybinds {
+  opacity: 0.35;
+  font-size: 12px;
+  margin-top: 8px;
+}
 
-.error { color: @urgent; padding: 8px; }
+.error {
+  color: @urgent;
+  padding: 8px;
+}

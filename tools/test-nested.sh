@@ -106,7 +106,14 @@ else
   echo "${dim}Packages are taken from the host, so nothing is downloaded.${reset}"
   echo
 
-  HOME="$SCRATCH" "$ROOT/install.sh" --no-packages 2>&1 |
+  # HYPRLAND_INSTANCE_SIGNATURE must be stripped HERE, not just at launch.
+  # The installer's theme step signals the compositor and the bar, and this
+  # shell belongs to the REAL session — leaving the signature set pointed
+  # `hyprctl reload` and the waybar reset signal at the live desktop, which
+  # eventually killed the real bar. The nested compositor does not exist yet
+  # at this point, so the correct value is "none".
+  env -u HYPRLAND_INSTANCE_SIGNATURE HOME="$SCRATCH" \
+    "$ROOT/install.sh" --no-packages 2>&1 |
     sed 's/^/  /' | tail -6
 
   # Replace the autostart with one that does not touch shared session state.

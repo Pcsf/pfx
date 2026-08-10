@@ -3,16 +3,24 @@
 # YOUR FILE — backed up before replacement, never silently overwritten.
 # The theme lives in ~/.local/share/pfx/default/walker/themes/pfx and takes its
 # colours from whatever theme pfx-theme-set last applied.
+#
+# TOML ordering matters here: every top-level key must appear BEFORE the first
+# [table], or it silently becomes a key of that table instead. `theme` landing
+# inside [keybinds] would leave walker on its default theme with no error.
 
 force_keyboard_focus = true
 selection_wrap = true
 hide_action_hints = true
-
 theme = "pfx"
 additional_theme_location = "~/.local/share/pfx/default/walker/themes/"
 
+# The F1..F4 badges beside the first rows are "quick activate", a separate
+# feature from action hints — hide_action_hints alone leaves them visible.
+[keybinds]
+quick_activate = []
+
 [placeholders]
-"default" = { input = "  Search…", list = "Nothing found" }
+"default" = { input = "󰍉  Search…", list = "Nothing found" }
 
 [providers]
 max_results = 256

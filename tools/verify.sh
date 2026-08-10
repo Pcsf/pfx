@@ -546,6 +546,114 @@ print(f"parses cleanly, {mods} modules configured")
 PY
 }
 
+# --------------------------------------------------------------- ISC-30..32
+# Walker failure modes that produce NO error message. All three shipped once.
+
+# Every provider the launcher config names must be carried by a package the
+# installer actually requests. walker-bin depends on bare `elephant`, which has
+# no providers at all, so a launcher configured for `desktopapplications` opens
+# empty and silent.
+isc30() {
+  python3 - "$ROOT" <<'PY'
+import sys, os, json, urllib.request, tomllib
+
+root = sys.argv[1]
+cfg = tomllib.load(open(os.path.join(root, "config/walker/config.toml"), "rb"))
+
+wanted = set(cfg.get("providers", {}).get("default", []))
+for pref in cfg.get("providers", {}).get("prefixes", []):
+    wanted.add(pref["provider"])
+
+aur = [l.split('#')[0].strip() for l in
+       open(os.path.join(root, "install/packages-aur.txt"), encoding="utf-8")]
+aur = [l for l in aur if l]
+
+available = set()
+for pkg in aur:
+    if not pkg.startswith("elephant"):
+        continue
+    url = f"https://aur.archlinux.org/rpc/v5/info?arg[]={pkg}"
+    try:
+        data = json.load(urllib.request.urlopen(url, timeout=15))
+    except Exception as e:
+        print(f"could not reach the AUR: {e}")
+        sys.exit(2)
+    if not data["results"]:
+        print(f"{pkg} is not in the AUR")
+        sys.exit(1)
+    r = data["results"][0]
+    for name in r.get("Provides", []) + [r["Name"]]:
+        available.add(name.split("=")[0].replace("elephant-", ""))
+
+missing = sorted(w for w in wanted if w not in available)
+if missing:
+    print("providers with no installed backend:", ", ".join(missing))
+    print("configured:", ", ".join(sorted(wanted)))
+    sys.exit(1)
+print(f"{len(wanted)} configured providers, all covered: {', '.join(sorted(wanted))}")
+PY
+}
+
+# Walker 2.16 names a list row `child`, not `.item`. Styling `.item:selected`
+# parses fine and highlights nothing, so the menu gives no feedback about what
+# Enter will do.
+isc31() {
+  local css="$ROOT/default/walker/themes/pfx/style.css"
+  grep -q 'child:selected' "$css" || {
+    echo "no 'child:selected' rule — the selection highlight will not render"
+    return 1
+  }
+  if grep -qE '^\s*\.item:selected' "$css"; then
+    echo "uses '.item:selected', which walker 2.16 does not match"
+    return 1
+  fi
+  echo "uses walker 2.16 row selectors (child / child:selected .item-box)"
+}
+
+# TOML puts every bare key after a [table] INSIDE that table. `theme` landing
+# in [keybinds] would silently leave walker on its default theme.
+isc32() {
+  python3 - "$ROOT/config/walker/config.toml" <<'PY'
+import sys, tomllib
+cfg = tomllib.load(open(sys.argv[1], "rb"))
+required = ["theme", "additional_theme_location"]
+missing = [k for k in required if k not in cfg]
+if missing:
+    print("not at top level (swallowed by a [table]?):", ", ".join(missing))
+    sys.exit(1)
+print(f"theme={cfg['theme']!r} resolved at top level; {len(cfg)} root keys")
+PY
+}
+
+# --------------------------------------------------------------- ISC-33
+# No command may signal a session process it does not own.
+#
+# This is the class, not one instance of it. pfx-restart and pfx-theme-bg-next
+# were fixed first and pfx-theme-set was missed, which is what killed the real
+# desktop's bar during nested testing. Anything that signals waybar, mako,
+# hyprpaper or walker must go through pfx-session-pids.
+isc33() {
+  local offenders
+  offenders=$(grep -rnE '(pkill|killall)[^|;]*\b(waybar|mako|hyprpaper|walker|elephant)\b' "$ROOT/bin" |
+    grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' || true)
+
+  [[ -z $offenders ]] || {
+    echo "unscoped signal to a session process:"
+    echo "$offenders"
+    echo "use: kill \$(pfx-session-pids <name>)"
+    return 1
+  }
+
+  # And the harness must not carry the real session's signature into the
+  # scratch install, which is how the signals escaped in the first place.
+  grep -q 'env -u HYPRLAND_INSTANCE_SIGNATURE HOME="\$SCRATCH"' "$ROOT/tools/test-nested.sh" || {
+    echo "test-nested.sh runs the installer with the live instance signature set"
+    return 1
+  }
+
+  echo "no unscoped signals; nested installer runs with no instance signature"
+}
+
 # --------------------------------------------------------------- anti-criteria
 anti1() {
   # Prose is excluded — the ISA, the README and this file all name the things
@@ -616,6 +724,10 @@ check ISC-24 "deployed Hyprland config parses" isc24
 check ISC-6b "every icon glyph exists in the font" iscglyphs
 check ISC-25 "no empty icon slots in the bar" iscemptyicons
 check ISC-26 "waybar config parses" iscwaybarjson
+check ISC-30 "every walker provider has a backend" isc30
+check ISC-31 "walker theme uses 2.16 selectors" isc31
+check ISC-32 "walker config key ordering is sane" isc32
+check ISC-33 "no unscoped signals to session processes" isc33
 check ANTI-1 "no third-party package repo" anti1
 check ANTI-3 "no broken JSON binds reader" anti3
 check ANTI-4 "network targets are bounded" anti4

@@ -8,6 +8,14 @@
 # The menu backend. Everything in pfx-menu pipes into `walker --dmenu`.
 walker-bin
 
+# Walker's data backend. walker-bin depends on bare `elephant`, which ships NO
+# providers — install only that and the application launcher opens an empty
+# list with no error anywhere. elephant-all carries desktopapplications, calc,
+# files and symbols, which are exactly the providers config/walker/config.toml
+# names. It is merely an optional dependency of walker-bin, so it has to be
+# requested explicitly.
+elephant-all
+
 # Resolves "the user's terminal" per the XDG spec, so terminal-launching
 # scripts don't have to hardcode alacritty.
 xdg-terminal-exec
