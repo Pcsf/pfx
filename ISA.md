@@ -211,6 +211,15 @@ Re-runnable: `./tools/verify.sh` — 24 automated probes, all passing as of 2026
 
 Incidental finding: Hyprland **0.56.2 fixes the `hyprctl -j binds` serializer** that motivated pfx's plain-text parser. The parser is kept anyway — it produced exact parity (71 formatted lines against 71 bind blocks) on the fixed version too, and it costs nothing to be right on both.
 
+**VM harness gotchas** (each cost a debugging round, each now handled in `tools/test-vm.sh`):
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "Display output is not active" | `hypridle` DPMS-off at 11min | VM override with zero listeners |
+| VM frozen, ssh dead | `hypridle` `systemctl suspend` at 30min | same, plus `--wake` via the QEMU monitor |
+| VM vanishes when testing a keybinding | host compositor owns `SUPER`; QEMU does not grab by default | `grab-on-hover=on` |
+| VM dies when its window is closed | host WM close terminates QEMU | `window-close=off` |
+
 **Testing ladder**
 
 | Rung | Command | Covers | Time |

@@ -139,6 +139,13 @@ pristine Arch system.
 
 Requires `qemu-desktop` and `cloud-image-utils`.
 
+**The QEMU window grabs the keyboard on hover.** Without that, every `SUPER`
+binding you press goes to the compositor you are sitting in, not to the VM —
+pressing `SUPER+W` to test pfx's close binding makes *your* window manager
+close the QEMU window instead. The window's close button is also disabled
+(`window-close=off`) so a stray click cannot take the running VM with it; shut
+it down with `--stop`.
+
 Idle management is disabled inside the VM. The shipped `hypridle.conf` blanks
 the display after 11 minutes and suspends the machine after 30 — correct for a
 laptop, but in a VM both are indistinguishable from a crash (QEMU reports

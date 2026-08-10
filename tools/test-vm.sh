@@ -288,9 +288,21 @@ if [[ $mode == gui ]]; then
   # No audio device on purpose: the `-audio` shorthand and the available sound
   # models vary across QEMU versions, and a rejected flag stops the VM from
   # booting at all. Nothing pfx needs testing for makes a sound.
+  #
+  # Two display options are doing real work here:
+  #
+  #   grab-on-hover=on   Without it the compositor you are SITTING IN keeps
+  #                      every SUPER binding. Press SUPER+W to test pfx's close
+  #                      binding and your own window manager closes the QEMU
+  #                      window instead — testing pfx's keybindings is
+  #                      impossible without the grab.
+  #
+  #   window-close=off   Stops the window manager (or a stray click on the X)
+  #                      from terminating QEMU and taking the running VM with
+  #                      it. Shut the VM down with --stop instead.
   qemu_args+=(
     -device virtio-vga-gl
-    -display gtk,gl=on,show-cursor=on
+    -display gtk,gl=on,show-cursor=on,grab-on-hover=on,window-close=off
     -device qemu-xhci -device usb-tablet -device usb-kbd
   )
   $fullscreen && qemu_args+=(-full-screen)
