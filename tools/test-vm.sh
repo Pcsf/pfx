@@ -63,14 +63,45 @@ ssh_vm() {
 
 vm_running() { [[ -f $PIDFILE ]] && kill -0 "$(<"$PIDFILE")" 2>/dev/null; }
 
+# Start the desktop automatically on the first console, so --gui lands in pfx
+# rather than at a shell prompt.
+#
+# The `command -v Hyprland` guard matters: without it, a VM where the install
+# failed would try to exec a missing binary on every login and leave you with
+# no way to reach a shell.
+enable_desktop_autostart() {
+  ssh_vm "cat > ~/.bash_profile" <<'PROFILE'
+# Written by pfx tools/test-vm.sh.
+[[ -f ~/.bashrc ]] && source ~/.bashrc
+
+if [[ -z ${WAYLAND_DISPLAY:-} ]] && [[ ${XDG_VTNR:-0} == 1 ]] && command -v Hyprland >/dev/null 2>&1; then
+  echo "Starting the pfx desktop… (Ctrl+C within 3s for a shell)"
+  sleep 3 || return
+  exec uwsm start hyprland-uwsm.desktop
+fi
+PROFILE
+
+  # A virtual output's "preferred" mode is small. Give the VM a real desktop
+  # resolution through the ordinary user override — which also demonstrates
+  # that the defaults/user config split works.
+  ssh_vm "cat > ~/.config/hypr/monitors.conf" <<'MONITORS'
+# VM override, written by tools/test-vm.sh.
+# 1920x1080 gives a realistic desktop; resize the QEMU window and Hyprland
+# follows, or run the VM with --fullscreen.
+monitor = , 1920x1080@60, 0x0, 1
+MONITORS
+}
+
 # ---------------------------------------------------------------- arguments
 
 mode="boot"
 fresh=false
+fullscreen=false
 for arg in "$@"; do
   case "$arg" in
   --install) mode="install" ;;
   --gui) mode="gui" ;;
+  --fullscreen) fullscreen=true ;;
   --ssh) mode="ssh" ;;
   --stop) mode="stop" ;;
   --fresh)
@@ -224,6 +255,7 @@ if [[ $mode == gui ]]; then
     -display gtk,gl=on,show-cursor=on
     -device qemu-xhci -device usb-tablet -device usb-kbd
   )
+  $fullscreen && qemu_args+=(-full-screen)
 else
   qemu_args+=(-display none -serial mon:stdio)
 fi
@@ -271,6 +303,15 @@ if [[ $mode == install || $mode == gui ]]; then
     ssh_vm "cd ~/pfx && ./install.sh" || die "install.sh failed inside the VM"
     echo
     ok "pfx installed in the VM"
+  fi
+
+  # Only meaningful once pfx is present; harmless before, thanks to the guard
+  # inside the profile itself.
+  if ssh_vm "command -v Hyprland" >/dev/null 2>&1; then
+    enable_desktop_autostart
+    ok "desktop will start automatically on the VM console"
+  else
+    warn "Hyprland not installed yet — run with --install first"
   fi
 fi
 

@@ -207,6 +207,10 @@ Re-runnable: `./tools/verify.sh` — 24 automated probes, all passing as of 2026
 
 **ISC-18 closed** (2026-08-10, nested session). The deferral is resolved: a nested Hyprland running pfx changed `general:col.active_border` from `ff7aa2f7` (tokyo-night accent) to `ff83a598` (gruvbox accent) across a `pfx-theme-set`, with the compositor PID unchanged at 2539961 and the outer session's border untouched at `ffe8e6e3 ffc4b5a0 45deg`. Both values match their palettes exactly.
 
+**VM verification (2026-08-10)** — the launcher claim is closed. A full `install.sh` ran in a disposable Arch VM (477 packages, both AUR builds), the machine booted through cloud-init → autologin → `uwsm start hyprland-uwsm.desktop` on a virtio-gpu DRM device, and the desktop came up with Hyprland, waybar, mako, hyprpaper, elephant and walker all running. `SUPER+SPACE` renders a populated application list — Alacritty, Chromium, Files, btop, Bluetooth Manager — with icons and a working selection highlight. `./tools/verify.sh` inside the VM: 30 passed, 0 failed.
+
+Incidental finding: Hyprland **0.56.2 fixes the `hyprctl -j binds` serializer** that motivated pfx's plain-text parser. The parser is kept anyway — it produced exact parity (71 formatted lines against 71 bind blocks) on the fixed version too, and it costs nothing to be right on both.
+
 **Testing ladder**
 
 | Rung | Command | Covers | Time |
