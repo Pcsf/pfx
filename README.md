@@ -122,8 +122,23 @@ with its own compositor instance, so your `~/.config` is never read or written,
 and destructive System-menu items are disabled inside it. Exit with
 `SUPER+SHIFT+ALT+Q`, or `pkill -f 'Hyprland -c /tmp/pfx-nested'` from anywhere.
 
-A **VM** is still the only way to test the boot path and systemd. Do that once
-before trusting it on hardware, and again whenever autostart changes.
+```bash
+./tools/test-vm.sh --install   # first run: a few minutes
+./tools/test-vm.sh --gui       # boot with a virtual GPU and see the desktop
+```
+
+The **VM** is the only rung that exercises the real boot path — systemd,
+logind, a login session, and Hyprland on an actual DRM device. It is also the
+only honest place to check the application launcher, because only there does
+`elephant` run against pfx's own packaging rather than the host's.
+
+It does not run `archinstall`: Arch publishes an official cloud image, so the
+base system arrives ready and cloud-init creates the user. The disk is a
+copy-on-write overlay, so `--fresh` throws it away and the next boot is a
+pristine Arch system.
+
+Requires `qemu-desktop`, `cloud-image-utils`, and membership of the `kvm`
+group.
 
 ## Updating
 

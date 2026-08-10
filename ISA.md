@@ -213,9 +213,11 @@ Re-runnable: `./tools/verify.sh` — 24 automated probes, all passing as of 2026
 |---|---|---|---|
 | Container | `./tools/test-container.sh` | all 26 non-visual probes, real package install, AUR bootstrap | ~90s cached |
 | Nested | `./tools/test-nested.sh` | real compositor, bar, menu, theme, keybindings, ISC-18 | ~30s |
-| VM | manual | boot path, systemd, login session | ~1h first time |
+| VM | `./tools/test-vm.sh --gui` | boot path, systemd, login session, **the app launcher** | ~5min first run |
 
-No rung supersedes another. The container cannot start a compositor (`CBackend::create() failed!` — Hyprland needs DRM and a seat, and 0.56 exposes no headless switch). The nested session cannot test the boot path or systemd, because it is a guest inside an already-running login session.
+The VM rung is not optional for the launcher: `SUPER+SPACE` depends on elephant
+providers that only pfx's own install puts in place, and neither of the lower
+rungs can see whether they landed. No rung supersedes another. The container cannot start a compositor (`CBackend::create() failed!` — Hyprland needs DRM and a seat, and 0.56 exposes no headless switch). The nested session cannot test the boot path or systemd, because it is a guest inside an already-running login session.
 
 **Bugs this pass caught and fixed:**
 
