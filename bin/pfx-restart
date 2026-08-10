@@ -3,28 +3,30 @@
 # pfx:summary=Restart a desktop component (waybar, mako, hyprpaper, walker).
 #
 # Usage: pfx-restart <component>
+#
+# Only ever restarts the copy belonging to this Hyprland instance — see
+# pfx-session-pids. That matters when a nested test session is running
+# alongside the real desktop.
 
 set -eo pipefail
 
+restart() {
+  local name="$1"
+  shift
+  local pids
+  pids=$(pfx-session-pids "$name")
+  [[ -n $pids ]] && kill $pids 2>/dev/null
+  setsid "$@" >/dev/null 2>&1 &
+  echo "$name restarted"
+}
+
 case "${1:-}" in
-waybar)
-  pkill -x waybar 2>/dev/null || true
-  setsid uwsm-app -- waybar >/dev/null 2>&1 &
-  echo "waybar restarted"
-  ;;
-mako)
-  pkill -x mako 2>/dev/null || true
-  setsid uwsm-app -- mako >/dev/null 2>&1 &
-  echo "mako restarted"
-  ;;
+waybar) restart waybar waybar ;;
+mako) restart mako mako ;;
+walker) restart walker walker --gapplication-service ;;
 hyprpaper)
   pfx-theme-bg-next >/dev/null
   echo "hyprpaper restarted"
-  ;;
-walker)
-  pkill -x walker 2>/dev/null || true
-  setsid walker --gapplication-service >/dev/null 2>&1 &
-  echo "walker restarted"
   ;;
 *)
   echo "Usage: pfx-restart {waybar|mako|hyprpaper|walker}" >&2

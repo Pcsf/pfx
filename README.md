@@ -102,6 +102,29 @@ To tweak a shipped theme without forking it, drop the files you want to change
 into `~/.config/pfx/themes/<name>/`. They are overlaid on top of the stock
 theme, so a single-file override is enough.
 
+## Testing
+
+Three rungs, none of which replaces another.
+
+```bash
+./tools/test-container.sh    # ~90s cached — installs into a clean Arch container
+./tools/test-nested.sh       # ~30s — real compositor inside your current session
+```
+
+The **container** proves the install works: real `pacman` and AUR runs, config
+deployment, idempotency, the theme engine, web apps, and Hyprland config
+parsing. All 26 probes pass in it. It cannot start a compositor — Hyprland
+needs DRM and a seat, and 0.56 exposes no headless switch.
+
+The **nested session** proves the desktop works: real waybar, real menu, real
+theme switching, real keybindings. It runs under a scratch `HOME` in `/tmp`
+with its own compositor instance, so your `~/.config` is never read or written,
+and destructive System-menu items are disabled inside it. Exit with
+`SUPER+SHIFT+ALT+Q`, or `pkill -f 'Hyprland -c /tmp/pfx-nested'` from anywhere.
+
+A **VM** is still the only way to test the boot path and systemd. Do that once
+before trusting it on hardware, and again whenever autostart changes.
+
 ## Updating
 
 ```bash

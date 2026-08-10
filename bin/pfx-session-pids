@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# pfx:summary=List PIDs of a process belonging to THIS Hyprland instance only.
+#
+# Usage: pfx-session-pids <process-name>
+#
+# `pkill -x waybar` kills every waybar the user owns. That is fine when there
+# is one session and actively wrong when there are two — restarting the bar in
+# a nested test session would kill the bar on the real desktop.
+#
+# Hyprland exports HYPRLAND_INSTANCE_SIGNATURE into everything it launches, so
+# matching on it is an exact test for "this process belongs to my compositor".
+# With no signature set (a plain shell, a script run over SSH) it falls back to
+# every match, which is the old behaviour.
+
+set -eo pipefail
+
+name="${1:?usage: pfx-session-pids <process-name>}"
+signature="${HYPRLAND_INSTANCE_SIGNATURE:-}"
+
+if [[ -z $signature ]]; then
+  pgrep -x "$name" || true
+  exit 0
+fi
+
+for pid in $(pgrep -x "$name" || true); do
+  # /proc/<pid>/environ is NUL-separated and unreadable for other users'
+  # processes, which is exactly the filtering we want anyway.
+  if tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null |
+    grep -qxF "HYPRLAND_INSTANCE_SIGNATURE=$signature"; then
+    echo "$pid"
+  fi
+done

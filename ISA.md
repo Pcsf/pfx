@@ -3,8 +3,8 @@ task: "Post-Arch install script and desktop toolkit"
 slug: 20260809-pfx-arch-hyprland-toolkit
 effort: extended
 effort_source: auto
-phase: verify
-progress: 23/24
+phase: complete
+progress: 29/29
 mode: iterate
 started: 2026-08-09T08:45:00Z
 updated: 2026-08-09T09:25:00Z
@@ -88,7 +88,7 @@ A `pfx` repository whose `install.sh`, run once on vanilla Arch, produces a work
 - [x] ISC-15: `pfx-theme-set <name>` swaps the current theme atomically — no window in which `~/.config/pfx/current/theme` is partially populated. *(probe: build into `next-theme`, single `mv`; assert via code path that no `cp` targets `current/theme`)*
 - [x] ISC-16: Every shipped theme provides the full file set the templates consume, so no app falls back to unstyled defaults. *(probe: for each theme dir, assert presence of every file named in the template manifest)*
 - [x] ISC-17: `pfx-theme-set` on an unknown name exits non-zero and leaves the current theme untouched. *(probe: capture `current/theme.name` before and after a bogus set)*
-- [ ] ISC-18: Applying a theme updates the live Hyprland border colour without a compositor restart. *(probe: `hyprctl getoption general:col.active_border` differs across two theme sets)*
+- [x] ISC-18: Applying a theme updates the live Hyprland border colour without a compositor restart. *(probe: `hyprctl getoption general:col.active_border` differs across two theme sets, compositor PID unchanged — run against a nested session)*
 - [x] ISC-19: `pfx-theme-list` output and the on-disk theme directories agree exactly. *(probe: diff the command output against `ls themes/`)*
 
 **Install / remove menus**
@@ -96,6 +96,14 @@ A `pfx` repository whose `install.sh`, run once on vanilla Arch, produces a work
 - [x] ISC-20: Every package named in an install-menu entry resolves in the Arch repos or AUR. *(probe: extract all `pfx-pkg-add`/`pfx-pkg-aur-add` arguments from the menu, resolve each)*
 - [x] ISC-21: `pfx-pkg-add` is non-interactive and refuses to run with an empty argument list. *(probe: invoke with no args, assert non-zero exit and no pacman call)*
 - [x] ISC-22: The remove menu never offers a package that is part of the base install set. *(probe: intersect remove-menu package names with `install/packages.txt`; assert empty)*
+
+**Testing harness**
+
+- [x] ISC-25: No icon slot in the bar config is present but empty. *(probe: grep for format strings that are whitespace-only or whose icon position is blank)*
+- [x] ISC-26: The waybar config is valid JSON once `//` comments are stripped. *(probe: `json.loads` on the stripped file)*
+- [x] ISC-27: A container install passes every probe that does not need a screen. *(probe: `./tools/test-container.sh`)*
+- [x] ISC-28: A nested session runs the real compositor without reading or writing anything the user owns. *(probe: md5 of live `~/.config/hypr/*` and absence of `~/.config/pfx` before and after)*
+- [x] ISC-29: Restarting a component affects only the invoking Hyprland instance. *(probe: two sessions running, `pfx-session-pids waybar` returns a different PID in each)*
 
 **Whole-system**
 
@@ -133,7 +141,9 @@ A `pfx` repository whose `install.sh`, run once on vanilla Arch, produces a work
 - [x] F7: Menu system — main, apps, style, install, remove, system, keybindings
 - [x] F8: Hyprland + waybar + walker + mako + terminal default configs
 - [x] F9: Three themes with full file sets
-- [x] F10: Verification pass against all 24 ISCs and 5 anti-criteria
+- [x] F10: Verification pass against all ISCs and anti-criteria
+- [x] F11: Container harness (`Dockerfile`, `tools/test-container.sh`)
+- [x] F12: Nested-session harness (`tools/test-nested.sh`) with session-scoped kills and a nested safety gate
 
 ## Decisions
 
@@ -188,9 +198,17 @@ Re-runnable: `./tools/verify.sh` — 24 automated probes, all passing as of 2026
 | ANTI-4 | network targets limited to Arch, the AUR, and the favicon service |
 | ANTI-5 | every behavioural probe ran under `HOME=$(mktemp -d)`; the live `~/.config` was never written |
 
-**Open:**
+**ISC-18 closed** (2026-08-10, nested session). The deferral is resolved: a nested Hyprland running pfx changed `general:col.active_border` from `ff7aa2f7` (tokyo-night accent) to `ff83a598` (gruvbox accent) across a `pfx-theme-set`, with the compositor PID unchanged at 2539961 and the outer session's border untouched at `ffe8e6e3 ffc4b5a0 45deg`. Both values match their palettes exactly.
 
-- **ISC-18 `[DEFERRED-VERIFY]`** — proving that a theme change repaints borders on a *live* compositor needs a running pfx session, and applying a pfx theme to the development machine's live Hyprland would violate ANTI-5. What is verified: the theme file contains the correct `col.active_border` value, `hyprland.conf` sources it, `--verify-config` accepts both, and `pfx-theme-set` calls `hyprctl reload` when `HYPRLAND_INSTANCE_SIGNATURE` is set. The unproven step is Hyprland honouring a reload, which is its documented behaviour. Close this on first real boot.
+**Testing ladder**
+
+| Rung | Command | Covers | Time |
+|---|---|---|---|
+| Container | `./tools/test-container.sh` | all 26 non-visual probes, real package install, AUR bootstrap | ~90s cached |
+| Nested | `./tools/test-nested.sh` | real compositor, bar, menu, theme, keybindings, ISC-18 | ~30s |
+| VM | manual | boot path, systemd, login session | ~1h first time |
+
+No rung supersedes another. The container cannot start a compositor (`CBackend::create() failed!` — Hyprland needs DRM and a seat, and 0.56 exposes no headless switch). The nested session cannot test the boot path or systemd, because it is a guest inside an already-running login session.
 
 **Bugs this pass caught and fixed:**
 
@@ -199,3 +217,11 @@ Re-runnable: `./tools/verify.sh` — 24 automated probes, all passing as of 2026
 3. `install.sh` assumed `~/.config` existed — false on a genuinely fresh account.
 4. Window rules used pre-0.53 syntax (`class:^(...)$`); `dwindle:pseudotile`, `misc:vfr` and the `gestures {}` block no longer exist; `togglesplit` is a `layoutmsg`, not a dispatcher. Eleven config errors, all found by ISC-24 and none visible without it.
 5. Sixty of 68 menu entries silently lost their icon glyphs, and two surviving choices were semantically wrong — Remove rendered as a **power symbol**. Menu now carries eight verified glyphs; ISC-6b locks it.
+
+**Second pass (2026-08-10), building the test harnesses:**
+
+6. **The same glyph loss had hit the entire waybar config and ISC-6b did not catch it.** Every icon in the bar was gone, and `bluetooth.format` had become an empty string, so that module rendered nothing at all. The probe passed because it asked *"is every glyph I use valid?"* — and a file with zero glyphs satisfies that trivially. Absence has to be tested for directly, not inferred from validity. ISC-25 now greps for empty icon slots; ISC-6b was widened from one file to all 48 under `bin/`, `config/` and `default/`. Found by looking at a screenshot of the nested bar, not by any probe.
+
+7. `pfx-restart` used `pkill -x waybar`, which kills *every* waybar the user owns. Harmless with one session, actively wrong with two — restarting the bar in a nested test session would have killed the bar on the real desktop. Now scoped via `pfx-session-pids`, which matches on `HYPRLAND_INSTANCE_SIGNATURE`. Verified with two sessions live: each returned only its own PID. `pfx-theme-bg-next` had the same defect for `hyprpaper`.
+
+8. The System menu's Lock, Suspend, Reboot and Shut down act on the machine, not the compositor — they would hit the real desktop from inside a nested session. Gated behind `PFX_NESTED`. Log out is exempt: `hyprctl dispatch exit` correctly targets only the nested instance.

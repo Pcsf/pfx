@@ -449,10 +449,14 @@ isc24() {
   echo "Hyprland --verify-config reports config ok"
 }
 
-# --------------------------------------------------------------- ISC-6 (static half)
-# The pixels are verified by hand; this locks in the regression that produced
-# a menu of blank icon slots: every glyph the menu uses must exist in the font
-# the installer ships.
+# --------------------------------------------------------------- ISC-6b / ISC-25
+# Two distinct failures, both of which shipped once:
+#
+#   1. A glyph that does not exist in the shipped font renders as nothing.
+#   2. An icon slot that lost its glyph entirely — the string is still there,
+#      just empty. The first version of this probe passed happily while the
+#      whole waybar was iconless, because "no glyphs" trivially satisfies
+#      "every glyph is valid". Absence has to be tested for directly.
 iscglyphs() {
   local font
   font=$(fc-match -f '%{file}' "JetBrainsMono Nerd Font" 2>/dev/null)
@@ -460,24 +464,85 @@ iscglyphs() {
     echo "JetBrainsMono Nerd Font not installed"
     return 2
   }
-  python3 - "$ROOT/bin/pfx-menu" "$font" <<'PY'
-import sys, subprocess
-src, font = sys.argv[1], sys.argv[2]
-chars = sorted({c for c in open(src, encoding='utf-8').read() if ord(c) > 0x2100})
-missing = []
-for c in chars:
-    r = subprocess.run(["magick", "-background", "black", "-fill", "white",
-                        "-font", font, "-pointsize", "48", f"label:{c}",
-                        "-format", "%[fx:mean]", "info:"],
-                       capture_output=True, text=True)
-    try: ink = float(r.stdout)
-    except ValueError: ink = 0.0
-    if ink < 0.001:
-        missing.append(f"U+{ord(c):05X}")
-print(f"{len(chars)} icon glyphs checked")
+  python3 - "$ROOT" "$font" <<'PY'
+import sys, subprocess, glob, os
+root, font = sys.argv[1], sys.argv[2]
+
+targets = []
+for pat in ("bin/*", "config/**/*", "default/**/*"):
+    targets += [f for f in glob.glob(os.path.join(root, pat), recursive=True)
+                if os.path.isfile(f)]
+
+cache = {}
+def present(c):
+    if c not in cache:
+        r = subprocess.run(["magick", "-background", "black", "-fill", "white",
+                            "-font", font, "-pointsize", "48", f"label:{c}",
+                            "-format", "%[fx:mean]", "info:"],
+                           capture_output=True, text=True)
+        try: cache[c] = float(r.stdout) >= 0.001
+        except ValueError: cache[c] = False
+    return cache[c]
+
+missing, total = [], 0
+for f in sorted(targets):
+    try: text = open(f, encoding='utf-8').read()
+    except Exception: continue
+    for c in {c for c in text if ord(c) > 0x2100}:
+        total += 1
+        if not present(c):
+            missing.append(f"{os.path.relpath(f, root)}: U+{ord(c):05X}")
+
+print(f"{total} icon glyph uses checked across {len(targets)} files")
 if missing:
-    print("absent from the font:", " ".join(missing))
+    print("absent from the font:")
+    for m in missing: print("   ", m)
     sys.exit(1)
+PY
+}
+
+# An icon slot that is present but empty. Catches the regression directly
+# rather than inferring it.
+iscemptyicons() {
+  local cfg="$ROOT/config/waybar/config.jsonc" problems=()
+
+  # "format": "  {usage}%" — leading whitespace where an icon belongs.
+  while IFS= read -r line; do
+    problems+=("${line}")
+  done < <(grep -nE '"(format|format-[a-z]+)": "[[:space:]]+\{' "$cfg" || true)
+
+  # "format-icons": ["", "", ""] — the array survived, the icons did not.
+  while IFS= read -r line; do
+    problems+=("${line}")
+  done < <(grep -nE '"format-icons": *[\[{][^]}]*""' "$cfg" || true)
+
+  # A module whose entire format string is empty renders nothing at all.
+  while IFS= read -r line; do
+    problems+=("${line}")
+  done < <(grep -nE '"format(-[a-z]+)?": *"[[:space:]]*"' "$cfg" || true)
+
+  if ((${#problems[@]})); then
+    echo "empty icon slots in waybar config:"
+    printf '   %s\n' "${problems[@]}"
+    return 1
+  fi
+  echo "no empty icon slots in the waybar config"
+}
+
+# The bar is unusable if its config does not parse. jsonc allows // comments,
+# so strip them before handing it to a JSON parser.
+iscwaybarjson() {
+  python3 - "$ROOT/config/waybar/config.jsonc" <<'PY'
+import sys, json, re
+raw = open(sys.argv[1], encoding='utf-8').read()
+stripped = re.sub(r'^\s*//.*$', '', raw, flags=re.M)
+try:
+    cfg = json.loads(stripped)
+except json.JSONDecodeError as e:
+    print(f"invalid JSON: {e}")
+    sys.exit(1)
+mods = len(cfg.get("modules-left", []) + cfg.get("modules-center", []) + cfg.get("modules-right", []))
+print(f"parses cleanly, {mods} modules configured")
 PY
 }
 
@@ -548,7 +613,9 @@ check ISC-21 "pkg-add refuses empty input" isc21
 check ISC-22 "remove menu spares base packages" isc22
 check ISC-23 "every command is documented" isc23
 check ISC-24 "deployed Hyprland config parses" isc24
-check ISC-6b "every menu glyph exists in the font" iscglyphs
+check ISC-6b "every icon glyph exists in the font" iscglyphs
+check ISC-25 "no empty icon slots in the bar" iscemptyicons
+check ISC-26 "waybar config parses" iscwaybarjson
 check ANTI-1 "no third-party package repo" anti1
 check ANTI-3 "no broken JSON binds reader" anti3
 check ANTI-4 "network targets are bounded" anti4

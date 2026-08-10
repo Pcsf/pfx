@@ -23,7 +23,7 @@
   "hyprland/workspaces": {
     "format": "{icon}",
     "on-click": "activate",
-    "format-icons": { "default": "", "active": "", "urgent": "" },
+    "format-icons": { "default": "󰝥", "active": "󰝤", "urgent": "󰀦" },
     "persistent-workspaces": { "*": 5 }
   },
 
@@ -44,13 +44,13 @@
 
   "cpu": {
     "interval": 5,
-    "format": "  {usage}%",
+    "format": "󰻠  {usage}%",
     "on-click": "pfx-launch-tui btop"
   },
 
   "memory": {
     "interval": 10,
-    "format": "  {percentage}%",
+    "format": "󰍛  {percentage}%",
     "on-click": "pfx-launch-tui btop"
   },
 
@@ -58,31 +58,31 @@
     "interval": 30,
     "states": { "warning": 25, "critical": 10 },
     "format": "{icon}  {capacity}%",
-    "format-charging": "  {capacity}%",
-    "format-icons": ["", "", "", "", ""],
+    "format-charging": "󰂄  {capacity}%",
+    "format-icons": ["󰂎", "󰁺", "󰁽", "󰂀", "󰁹"],
     "tooltip-format": "{timeTo}"
   },
 
   "network": {
-    "format-wifi": "  {signalStrength}%",
-    "format-ethernet": "  wired",
-    "format-disconnected": "  offline",
+    "format-wifi": "󰖩  {signalStrength}%",
+    "format-ethernet": "󰈀  wired",
+    "format-disconnected": "󰤭  offline",
     "tooltip-format-wifi": "{essid} ({signalStrength}%)",
     "on-click": "pfx-launch-tui impala"
   },
 
   "bluetooth": {
-    "format": "",
-    "format-disabled": "",
-    "format-connected": "  {num_connections}",
+    "format": "󰂯",
+    "format-disabled": "󰂲",
+    "format-connected": "󰂱  {num_connections}",
     "tooltip-format": "{device_alias}",
     "on-click": "uwsm-app -- blueman-manager"
   },
 
   "pulseaudio": {
     "format": "{icon}  {volume}%",
-    "format-muted": "  muted",
-    "format-icons": { "default": ["", "", ""] },
+    "format-muted": "󰖁  muted",
+    "format-icons": { "default": ["󰕿", "󰖀", "󰕾"] },
     "on-click": "uwsm-app -- pavucontrol",
     "on-scroll-up": "swayosd-client --output-volume raise",
     "on-scroll-down": "swayosd-client --output-volume lower"

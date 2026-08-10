@@ -40,7 +40,10 @@ selected="${backgrounds[$next_index]}"
 echo "$selected" >"$state_file"
 
 if command -v hyprpaper >/dev/null 2>&1; then
-  pkill -x hyprpaper 2>/dev/null || true
+  # Only this instance's hyprpaper — a nested test session must not blank the
+  # wallpaper on the real desktop.
+  own=$(pfx-session-pids hyprpaper 2>/dev/null || true)
+  [[ -n $own ]] && kill $own 2>/dev/null || true
   cat >"$PFX_CONFIG/current/hyprpaper.conf" <<EOF
 preload = $selected
 wallpaper = , $selected

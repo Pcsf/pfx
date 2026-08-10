@@ -61,6 +61,17 @@ edit_config() {
 
 open_url() { setsid pfx-launch-browser "$1" >/dev/null 2>&1 & }
 
+# SAFETY GATE. Locking, suspending, rebooting and logging out act on the whole
+# machine or the whole login session, not on this compositor. Inside a nested
+# test session that means they would hit the real desktop the tester is sitting
+# in front of. tools/test-nested.sh sets PFX_NESTED=1 so they refuse instead.
+refuse_if_nested() {
+  [[ ${PFX_NESTED:-0} == 1 ]] || return 1
+  notify-send -u critical "pfx (nested session)" \
+    "'$1' is disabled here — it would affect your real session, not this one."
+  return 0
+}
+
 # ---------------------------------------------------------------- submenus
 
 show_apps_menu() {
@@ -212,11 +223,21 @@ show_system_menu() {
   case $(menu "System" "Config\nRestart waybar\nLock\nSuspend\nReboot\nShut down\nLog out") in
   *Config*) show_config_menu ;;
   *"Restart waybar"*) pfx-restart waybar >/dev/null ;;
-  *Lock*) loginctl lock-session 2>/dev/null || hyprlock ;;
-  *Suspend*) systemctl suspend ;;
-  *Reboot*) systemctl reboot ;;
-  *"Shut down"*) systemctl poweroff ;;
-  *"Log out"*) uwsm stop 2>/dev/null || hyprctl dispatch exit ;;
+  *Lock*) refuse_if_nested Lock || loginctl lock-session 2>/dev/null || hyprlock ;;
+  *Suspend*) refuse_if_nested Suspend || systemctl suspend ;;
+  *Reboot*) refuse_if_nested Reboot || systemctl reboot ;;
+  *"Shut down"*) refuse_if_nested "Shut down" || systemctl poweroff ;;
+  # Log out is the one destructive item that IS meaningful nested: it ends the
+  # nested compositor and nothing else. `hyprctl dispatch exit` targets this
+  # instance via HYPRLAND_INSTANCE_SIGNATURE; `uwsm stop` would not, so it is
+  # skipped when nested.
+  *"Log out"*)
+    if [[ ${PFX_NESTED:-0} == 1 ]]; then
+      hyprctl dispatch exit
+    else
+      uwsm stop 2>/dev/null || hyprctl dispatch exit
+    fi
+    ;;
   *) back_to ;;
   esac
 }
